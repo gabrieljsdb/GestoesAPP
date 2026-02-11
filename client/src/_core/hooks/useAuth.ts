@@ -13,7 +13,14 @@ export function useAuth(options?: UseAuthOptions) {
     options ?? {};
   const utils = trpc.useUtils();
 
+  // OAuth user query
   const meQuery = trpc.auth.me.useQuery(undefined, {
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Local admin query
+  const meLocalQuery = trpc.localAuth.meLocal.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -24,9 +31,19 @@ export function useAuth(options?: UseAuthOptions) {
     },
   });
 
+  const logoutLocalMutation = trpc.localAuth.logoutLocal.useMutation({
+    onSuccess: () => {
+      utils.localAuth.meLocal.setData(undefined, null);
+    },
+  });
+
   const logout = useCallback(async () => {
     try {
-      await logoutMutation.mutateAsync();
+      // Try both logouts
+      await Promise.allSettled([
+        logoutMutation.mutateAsync(),
+        logoutLocalMutation.mutateAsync()
+      ]);
     } catch (error: unknown) {
       if (
         error instanceof TRPCClientError &&
@@ -37,32 +54,56 @@ export function useAuth(options?: UseAuthOptions) {
       throw error;
     } finally {
       utils.auth.me.setData(undefined, null);
-      await utils.auth.me.invalidate();
+      utils.localAuth.meLocal.setData(undefined, null);
+      await Promise.all([
+        utils.auth.me.invalidate(),
+        utils.localAuth.meLocal.invalidate()
+      ]);
     }
-  }, [logoutMutation, utils]);
+  }, [logoutMutation, logoutLocalMutation, utils]);
 
   const state = useMemo(() => {
+    // Combined user data: prefer OAuth user, fallback to local admin
+    const oauthUser = meQuery.data;
+    const localAdmin = meLocalQuery.data;
+    
+    const combinedUser = oauthUser || (localAdmin ? {
+      id: localAdmin.adminId,
+      openId: `local-${localAdmin.adminId}`,
+      name: localAdmin.fullName || localAdmin.username,
+      username: localAdmin.username,
+      email: localAdmin.email || "",
+      isLocalAdmin: true
+    } : null);
+
     localStorage.setItem(
       "manus-runtime-user-info",
-      JSON.stringify(meQuery.data)
+      JSON.stringify(combinedUser)
     );
+
     return {
-      user: meQuery.data ?? null,
-      loading: meQuery.isLoading || logoutMutation.isPending,
-      error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: Boolean(meQuery.data),
+      user: combinedUser ?? null,
+      loading: meQuery.isLoading || meLocalQuery.isLoading || logoutMutation.isPending || logoutLocalMutation.isPending,
+      error: meQuery.error ?? meLocalQuery.error ?? logoutMutation.error ?? logoutLocalMutation.error ?? null,
+      isAuthenticated: Boolean(combinedUser),
+      isLocalAdmin: Boolean(localAdmin && !oauthUser)
     };
   }, [
     meQuery.data,
     meQuery.error,
     meQuery.isLoading,
+    meLocalQuery.data,
+    meLocalQuery.error,
+    meLocalQuery.isLoading,
     logoutMutation.error,
     logoutMutation.isPending,
+    logoutLocalMutation.error,
+    logoutLocalMutation.isPending,
   ]);
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
-    if (meQuery.isLoading || logoutMutation.isPending) return;
+    if (state.loading) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
@@ -71,14 +112,16 @@ export function useAuth(options?: UseAuthOptions) {
   }, [
     redirectOnUnauthenticated,
     redirectPath,
-    logoutMutation.isPending,
-    meQuery.isLoading,
+    state.loading,
     state.user,
   ]);
 
   return {
     ...state,
-    refresh: () => meQuery.refetch(),
+    refresh: () => {
+      meQuery.refetch();
+      meLocalQuery.refetch();
+    },
     logout,
   };
 }

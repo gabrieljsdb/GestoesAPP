@@ -1,0 +1,57 @@
+# Docker Compose configuration
+
+services:
+  # Application com banco de dados externo
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oab-timeline-app
+    environment:
+      NODE_ENV: production
+      # Banco de dados externo
+      DATABASE_URL: mysql://gabrieljsdb:@Aa016512@172.16.2.5:3306/gestaosys
+      
+      # OAuth e Segurança
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      VITE_APP_ID: ${VITE_APP_ID}
+      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-https://api.manus.im}
+      VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-https://manus.im}
+      
+      # Owner
+      OWNER_OPEN_ID: ${OWNER_OPEN_ID}
+      OWNER_NAME: ${OWNER_NAME}
+      
+      # Manus API
+      BUILT_IN_FORGE_API_URL: ${BUILT_IN_FORGE_API_URL}
+      BUILT_IN_FORGE_API_KEY: ${BUILT_IN_FORGE_API_KEY}
+      VITE_FRONTEND_FORGE_API_URL: ${VITE_FRONTEND_FORGE_API_URL}
+      VITE_FRONTEND_FORGE_API_KEY: ${VITE_FRONTEND_FORGE_API_KEY}
+      
+      # Analytics
+      VITE_ANALYTICS_ENDPOINT: ${VITE_ANALYTICS_ENDPOINT}
+      VITE_ANALYTICS_WEBSITE_ID: ${VITE_ANALYTICS_WEBSITE_ID}
+      
+      # Branding
+      VITE_APP_TITLE: ${VITE_APP_TITLE:-Painel Administrativo OAB}
+      VITE_APP_LOGO: ${VITE_APP_LOGO}
+    
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    
+    networks:
+      - oab-network
+    
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  oab-network:
+    driver: bridge
