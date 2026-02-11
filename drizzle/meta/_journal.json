@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1770747157907,
+      "tag": "0000_nosy_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1770747248211,
+      "tag": "0001_moaning_kree",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1770749610237,
+      "tag": "0002_gifted_katie_power",
+      "breakpoints": true
+    }
+  ]
+}
