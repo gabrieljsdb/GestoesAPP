@@ -20,8 +20,8 @@ export default function Timeline() {
   useEffect(() => {
     if (!gestoes || gestoes.length === 0) return;
 
-    // Sort gestoes by period
-    const sortedGestoes = [...gestoes].sort((a, b) => a.period.localeCompare(b.period));
+    // Sort gestoes by displayOrder (respects admin panel ordering)
+    const sortedGestoes = [...gestoes].sort((a, b) => a.displayOrder - b.displayOrder);
 
     // Find initial index
     const initialIndex = sortedGestoes.findIndex((g) => g.startActive);
@@ -174,13 +174,13 @@ export default function Timeline() {
 
   const handlePrev = () => {
     if (!gestoes) return;
-    const sortedGestoes = [...gestoes].sort((a, b) => a.period.localeCompare(b.period));
+    const sortedGestoes = [...gestoes].sort((a, b) => a.displayOrder - b.displayOrder);
     activateNode(activeIndex - 1, sortedGestoes);
   };
 
   const handleNext = () => {
     if (!gestoes) return;
-    const sortedGestoes = [...gestoes].sort((a, b) => a.period.localeCompare(b.period));
+    const sortedGestoes = [...gestoes].sort((a, b) => a.displayOrder - b.displayOrder);
     activateNode(activeIndex + 1, sortedGestoes);
   };
 
@@ -200,7 +200,7 @@ export default function Timeline() {
     );
   }
 
-  const sortedGestoes = [...gestoes].sort((a, b) => a.period.localeCompare(b.period));
+  const sortedGestoes = [...gestoes].sort((a, b) => a.displayOrder - b.displayOrder);
 
   return (
     <>

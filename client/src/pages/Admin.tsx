@@ -7,10 +7,118 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Download, Eye, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+interface SortableGestaoCardProps {
+  gestao: any;
+  onEdit: (gestao: any) => void;
+  onDelete: (id: number) => void;
+  onDeleteMember: (memberId: number) => void;
+}
+
+function SortableGestaoCard({ gestao, onEdit, onDelete, onDeleteMember }: SortableGestaoCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: gestao.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing touch-none"
+              >
+                <GripVertical className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+              </div>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  Gestão {gestao.period}
+                  {gestao.startActive && (
+                    <span className="text-xs font-normal bg-primary/10 text-primary px-2 py-1 rounded">
+                      Ativa
+                    </span>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {gestao.members.length} membro(s)
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEdit(gestao)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onDelete(gestao.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {gestao.members.map((member: any) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+              >
+                <span className="text-sm">{member.name}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDeleteMember(member.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default function Admin() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -24,6 +132,13 @@ export default function Admin() {
 
   const utils = trpc.useUtils();
   const { data: gestoes, isLoading } = trpc.gestoes.list.useQuery();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const createMutation = trpc.gestoes.create.useMutation({
     onSuccess: () => {
@@ -68,6 +183,16 @@ export default function Admin() {
     },
     onError: (error) => {
       toast.error("Erro ao remover membro: " + error.message);
+    },
+  });
+
+  const reorderMutation = trpc.gestoes.reorder.useMutation({
+    onSuccess: () => {
+      utils.gestoes.list.invalidate();
+      toast.success("Ordem atualizada com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar ordem: " + error.message);
     },
   });
 
@@ -125,6 +250,27 @@ export default function Admin() {
     setIsEditOpen(true);
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || !gestoes) return;
+
+    if (active.id !== over.id) {
+      const oldIndex = gestoes.findIndex((g) => g.id === active.id);
+      const newIndex = gestoes.findIndex((g) => g.id === over.id);
+
+      const reorderedGestoes = arrayMove(gestoes, oldIndex, newIndex);
+
+      // Update display order for all affected items
+      const updates = reorderedGestoes.map((gestao, index) => ({
+        id: gestao.id,
+        displayOrder: index,
+      }));
+
+      reorderMutation.mutate({ updates });
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -132,7 +278,7 @@ export default function Admin() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Gestões</h1>
             <p className="text-muted-foreground mt-1">
-              Gerencie o histórico de gestões da organização
+              Gerencie o histórico de gestões da organização. Arraste para reordenar.
             </p>
           </div>
           <div className="flex gap-2">
@@ -207,67 +353,28 @@ export default function Admin() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
-            {gestoes.map((gestao) => (
-              <Card key={gestao.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <GripVertical className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          Gestão {gestao.period}
-                          {gestao.startActive && (
-                            <span className="text-xs font-normal bg-primary/10 text-primary px-2 py-1 rounded">
-                              Ativa
-                            </span>
-                          )}
-                        </CardTitle>
-                        <CardDescription>
-                          {gestao.members.length} membro(s)
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(gestao)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(gestao.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {gestao.members.map((member: any) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                      >
-                        <span className="text-sm">{member.name}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteMember(member.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={gestoes.map((g) => g.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="grid gap-4">
+                {gestoes.map((gestao) => (
+                  <SortableGestaoCard
+                    key={gestao.id}
+                    gestao={gestao}
+                    onEdit={openEditDialog}
+                    onDelete={handleDelete}
+                    onDeleteMember={handleDeleteMember}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
 
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

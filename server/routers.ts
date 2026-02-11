@@ -101,6 +101,21 @@ export const appRouter = router({
         await db.deleteGestao(input.id);
         return { success: true };
       }),
+
+    // Bulk update for reordering gestoes
+    reorder: adminProcedure
+      .input(z.object({
+        updates: z.array(z.object({
+          id: z.number(),
+          displayOrder: z.number(),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        for (const update of input.updates) {
+          await db.updateGestao(update.id, { displayOrder: update.displayOrder });
+        }
+        return { success: true };
+      }),
   }),
 
   members: router({
