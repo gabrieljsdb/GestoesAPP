@@ -125,6 +125,50 @@ export const appRouter = router({
         await db.deleteTimeline(input.id);
         return { success: true };
       }),
+
+    import: adminProcedure
+      .input(z.object({
+        timelineId: z.number(),
+        data: z.object({
+          gestoes: z.array(z.object({
+            period: z.string(),
+            startActive: z.boolean().optional(),
+            displayOrder: z.number().optional(),
+            members: z.array(z.object({
+              name: z.string(),
+              displayOrder: z.number().optional()
+            })).optional()
+          }))
+        })
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.timelineId))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+
+        // We append data, not replace.
+        for (const gData of input.data.gestoes) {
+          const gestaoId = await db.createGestao({
+            timelineId: input.timelineId,
+            period: gData.period,
+            startActive: gData.startActive ?? false,
+            displayOrder: gData.displayOrder ?? 0
+          });
+
+          if (gData.members) {
+            for (let i = 0; i < gData.members.length; i++) {
+              const mData = gData.members[i];
+              await db.createMember({
+                gestaoId,
+                name: mData.name,
+                displayOrder: mData.displayOrder ?? i
+              });
+            }
+          }
+        }
+        return { success: true };
+      }),
   }),
 
   gestoes: router({
