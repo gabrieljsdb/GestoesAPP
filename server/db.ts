@@ -154,6 +154,13 @@ export async function getGestoesByTimelineId(timelineId: number) {
   return await db.select().from(gestoes).where(eq(gestoes.timelineId, timelineId)).orderBy(asc(gestoes.displayOrder), asc(gestoes.period));
 }
 
+export async function getGestaoById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(gestoes).where(eq(gestoes.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 export async function createGestao(data: InsertGestao) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
