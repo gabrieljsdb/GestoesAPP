@@ -160,7 +160,7 @@ export default function Admin() {
             <SortableContext items={gestoes?.map(g => g.id) || []} strategy={verticalListSortingStrategy}>
               <div className="grid gap-4">
                 {gestoes?.map(gestao => (
-                  <SortableGestaoCard key={gestao.id} gestao={gestao} onEdit={() => {}} onDelete={id => confirm("Deletar?") && deleteMutation.mutate({ id })} onDeleteMember={id => confirm("Deletar membro?") && deleteMemberMutation.mutate({ id })} />
+                  <SortableGestaoCard key={gestao.id} gestao={gestao} onEdit={() => { }} onDelete={id => confirm("Deletar?") && deleteMutation.mutate({ id })} onDeleteMember={id => confirm("Deletar membro?") && deleteMemberMutation.mutate({ id })} />
                 ))}
               </div>
             </SortableContext>
