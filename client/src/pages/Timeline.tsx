@@ -46,7 +46,7 @@ export default function Timeline() {
   // Handle activeIndex changes (clicked or navigated)
   useEffect(() => {
     if (activeIndex !== null && sortedGestoes[activeIndex]) {
-      // Update active class on nodes manually if needed, or rely on React
+      // Update active class on nodes manually if needed, or rely on React TESTE
       // Since we render with React now, the class active is applied in JSX
       // But we need to center it and show card
       centerNode(activeIndex);
@@ -64,46 +64,7 @@ export default function Timeline() {
     track.scrollTo({ left: nodeCenter - trackCenter, behavior: "smooth" });
   };
 
-  const renderCard = (data: any, firstRun: boolean) => {
-    if (!contentAreaRef.current) return;
-    const membersHTML = data.members.map((m: any, i: number) => `
-      <div class="ot-member-item" style="animation-delay: ${i * 0.05}s">
-        <div class="ot-icon">✓</div>
-        <span class="ot-name">${m.name}</span>
-      </div>
-    `).join("");
 
-    const cardHTML = `
-      <div class="ot-card visible">
-        <div class="ot-card-header">
-          <h3 class="ot-card-title">Gestão ${data.period}</h3>
-          <div class="ot-card-subtitle">Diretoria e Conselho</div>
-        </div>
-        <div class="ot-members-grid">
-          ${membersHTML}
-        </div>
-      </div>
-    `;
-
-    // Always just replace content for simplicity and ensure animation triggers
-    // If it's the same card, we might want to avoid flicker, but the original logic handled it well
-    if (firstRun) {
-      contentAreaRef.current.innerHTML = cardHTML;
-    } else {
-      const currentCard = contentAreaRef.current.querySelector(".ot-card") as HTMLElement;
-      if (currentCard) {
-        currentCard.style.opacity = "0";
-        currentCard.style.transform = "translateY(10px)";
-        setTimeout(() => {
-          if (contentAreaRef.current) {
-            contentAreaRef.current.innerHTML = cardHTML;
-          }
-        }, 300);
-      } else {
-        contentAreaRef.current.innerHTML = cardHTML;
-      }
-    }
-  };
 
   const handleNodeClick = (index: number) => {
     if (Math.abs(dragState.current.velX) < 2) {
@@ -146,51 +107,244 @@ export default function Timeline() {
     dragState.current.momentumID = requestAnimationFrame(step);
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]"><p>Carregando...</p></div>;
-  if (!gestoes || gestoes.length === 0) return <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]"><p>Nenhuma gestão encontrada.</p></div>;
+  const renderCard = (data: any, firstRun: boolean) => {
+    if (!contentAreaRef.current) return;
 
-  return (
-    <>
-      <style>{timelineStyles}</style>
-      <div id="oab-timeline-wrapper">
-        <div className="ot-container">
-          <div className="ot-header">
-            <h2>{timelineData?.name || "Linha do Tempo"}</h2>
-            <p>{timelineData?.description || "Histórico das Gestões"}</p>
-          </div>
-          <div className="ot-track-wrapper">
-            <div className="ot-line-background"></div>
-            <div className="ot-track" ref={trackRef} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onMouseMove={handleMouseMove}>
-              {sortedGestoes.map((item, index) => (
-                <div
-                  key={item.id}
-                  className={`ot-node ${index === activeIndex ? 'active' : ''}`}
-                  ref={el => nodeRefs.current[index] = el}
-                  onClick={() => handleNodeClick(index)}
-                >
-                  <div className="ot-dot"></div>
-                  <span className="ot-year">{item.period}</span>
-                  <div className="ot-connector"></div>
-                </div>
-              ))}
+    // Helper to filter and map members
+    const getMembersByRole = (role: string) => {
+      return data.members.filter((m: any) => m.role === role);
+    };
+
+    const boardRoles = [
+      { role: 'presidente', label: 'Presidente' },
+      { role: 'vice_presidente', label: 'Vice-Presidente' },
+      { role: 'secretario_geral', label: 'Secretário Geral' },
+      { role: 'secretario_adjunto', label: 'Secretário Geral Adjunto' },
+      { role: 'tesoureiro', label: 'Tesoureiro' }
+    ];
+
+    const councilorTitular = getMembersByRole('conselheiro_titular');
+    const councilorSuplente = getMembersByRole('conselheiro_suplente');
+
+    // Fallback for members without role or other roles
+    const otherMembers = data.members.filter((m: any) => !m.role || !['presidente', 'vice_presidente', 'secretario_geral', 'secretario_adjunto', 'tesoureiro', 'conselheiro_titular', 'conselheiro_suplente'].includes(m.role));
+
+    // Generate HTML for Board (Right Side - Vertical List)
+    const boardHTML = boardRoles.map(r => {
+      const member = getMembersByRole(r.role)[0]; // Assuming one per role for board
+      if (!member) return '';
+      return `
+            <div class="ot-board-item">
+                <span class="ot-board-label">${r.label}</span>
+                <span class="ot-board-name">${member.name}</span>
             </div>
-          </div>
-          <div className="ot-content-wrapper" ref={contentAreaRef}></div>
-          <div className="ot-controls">
-            <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.max(0, activeIndex - 1))} disabled={activeIndex === 0}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-              Anterior
-            </button>
-            <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.min(sortedGestoes.length - 1, activeIndex + 1))} disabled={activeIndex === sortedGestoes.length - 1}>
-              Próximo
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
-            </button>
-          </div>
+        `;
+    }).join('');
+
+    // Generate HTML for Councilors (Left Side - Columns)
+    const councilorsHTML = `
+        <div class="ot-council-section">
+            ${councilorTitular.length > 0 ? `
+                <div class="ot-council-group">
+                    <h4>Conselheiros Titulares</h4>
+                    <div class="ot-council-list">
+                        ${councilorTitular.map((m: any) => `<span>${m.name}</span>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            ${councilorSuplente.length > 0 ? `
+                <div class="ot-council-group">
+                    <h4>Conselheiros Suplentes</h4>
+                    <div class="ot-council-list">
+                        ${councilorSuplente.map((m: any) => `<span>${m.name}</span>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+             ${otherMembers.length > 0 ? `
+                <div class="ot-council-group">
+                    <h4>Membros</h4>
+                    <div class="ot-council-list">
+                        ${otherMembers.map((m: any) => `<span>${m.name}</span>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    const cardHTML = `
+      <div class="ot-card visible">
+        <div class="ot-card-header">
+          <h3 class="ot-card-title">Gestão ${data.period}</h3>
+        </div>
+        
+        <div class="ot-layout-grid">
+            <!-- Left Column: Councilors -->
+            <div class="ot-col-council">
+                ${councilorsHTML}
+            </div>
+
+            <!-- Right Column: Board -->
+            <div class="ot-col-board">
+                <div class="ot-board-list">
+                    ${boardHTML}
+                </div>
+            </div>
         </div>
       </div>
-    </>
-  );
-}
+    `;
+
+    // Always just replace content for simplicity and ensure animation triggers
+    // If it's the same card, we might want to avoid flicker, but the original logic handled it well
+    if (firstRun) {
+      contentAreaRef.current.innerHTML = cardHTML;
+    } else {
+      const currentCard = contentAreaRef.current.querySelector(".ot-card") as HTMLElement;
+      if (currentCard) {
+        currentCard.style.opacity = "0";
+        currentCard.style.transform = "translateY(10px)";
+        setTimeout(() => {
+          if (contentAreaRef.current) {
+            contentAreaRef.current.innerHTML = cardHTML;
+          }
+        }, 300);
+      } else {
+        contentAreaRef.current.innerHTML = cardHTML;
+      }
+    }
+  };
+  const councilorTitular = getMembersByRole('conselheiro_titular');
+  const councilorSuplente = getMembersByRole('conselheiro_suplente');
+
+  // Fallback for members without role or other roles
+  const otherMembers = data.members.filter((m: any) => !m.role || !['presidente', 'vice_presidente', 'secretario_geral', 'secretario_adjunto', 'tesoureiro', 'conselheiro_titular', 'conselheiro_suplente'].includes(m.role));
+
+  // Generate HTML for Board (Right Side - Vertical List)
+  const boardHTML = boardRoles.map(r => {
+    const member = getMembersByRole(r.role)[0]; // Assuming one per role for board
+    if (!member) return '';
+    return `
+            <div class="ot-board-item">
+                <span class="ot-board-label">${r.label}</span>
+                <span class="ot-board-name">${member.name}</span>
+            </div>
+        `;
+  }).join('');
+
+  // Generate HTML for Councilors (Left Side - Columns)
+  const councilorsHTML = `
+        <div class="ot-council-section">
+            ${councilorTitular.length > 0 ? `
+                <div class="ot-council-group">
+                    <h4>Conselheiros Titulares</h4>
+                    <div class="ot-council-list">
+                        ${councilorTitular.map((m: any) => `<span>${m.name}</span>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            ${councilorSuplente.length > 0 ? `
+                <div class="ot-council-group">
+                    <h4>Conselheiros Suplentes</h4>
+                    <div class="ot-council-list">
+                        ${councilorSuplente.map((m: any) => `<span>${m.name}</span>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+             ${otherMembers.length > 0 ? `
+                <div class="ot-council-group">
+                    <h4>Membros</h4>
+                    <div class="ot-council-list">
+                        ${otherMembers.map((m: any) => `<span>${m.name}</span>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+  const cardHTML = `
+      <div class="ot-card visible">
+        <div class="ot-card-header">
+          <h3 class="ot-card-title">Gestão ${data.period}</h3>
+        </div>
+        
+        <div class="ot-layout-grid">
+            <!-- Left Column: Councilors -->
+            <div class="ot-col-council">
+                ${councilorsHTML}
+            </div>
+
+            <!-- Right Column: Board -->
+            <div class="ot-col-board">
+                <div class="ot-board-list">
+                    ${boardHTML}
+                </div>
+            </div>
+        </div>
+      </div>
+    `;
+
+  // Always just replace content for simplicity and ensure animation triggers
+  // If it's the same card, we might want to avoid flicker, but the original logic handled it well
+  if (firstRun) {
+    contentAreaRef.current.innerHTML = cardHTML;
+  } else {
+    const currentCard = contentAreaRef.current.querySelector(".ot-card") as HTMLElement;
+    if (currentCard) {
+      currentCard.style.opacity = "0";
+      currentCard.style.transform = "translateY(10px)";
+      setTimeout(() => {
+        if (contentAreaRef.current) {
+          contentAreaRef.current.innerHTML = cardHTML;
+        }
+      }, 300);
+    } else {
+      contentAreaRef.current.innerHTML = cardHTML;
+    }
+  }
+};
+if (!gestoes || gestoes.length === 0) return <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]"><p>Nenhuma gestão encontrada.</p></div>;
+
+return (
+  <>
+    <style>{timelineStyles}</style>
+    <div id="oab-timeline-wrapper">
+      <div className="ot-container">
+        <div className="ot-header">
+          <h2>{timelineData?.name || "Linha do Tempo"}</h2>
+          <p>{timelineData?.description || "Histórico das Gestões"}</p>
+        </div>
+        <div className="ot-track-wrapper">
+          <div className="ot-line-background"></div>
+          <div className="ot-track" ref={trackRef} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onMouseMove={handleMouseMove}>
+            {sortedGestoes.map((item, index) => (
+              <div
+                key={item.id}
+                className={`ot-node ${index === activeIndex ? 'active' : ''}`}
+                ref={el => nodeRefs.current[index] = el}
+                onClick={() => handleNodeClick(index)}
+              >
+                <div className="ot-dot"></div>
+                <span className="ot-year">{item.period}</span>
+                <div className="ot-connector"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="ot-content-wrapper" ref={contentAreaRef}></div>
+        <div className="ot-controls">
+          <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.max(0, activeIndex - 1))} disabled={activeIndex === 0}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            Anterior
+          </button>
+          <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.min(sortedGestoes.length - 1, activeIndex + 1))} disabled={activeIndex === sortedGestoes.length - 1}>
+            Próximo
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </>
+);
+    }
 
 const timelineStyles = `
 /* ===== 1. VARIÁVEIS E ESCOPO ===== */
@@ -461,88 +615,104 @@ const timelineStyles = `
     font-weight: 600;
 }
 
-/* Grid de Membros */
-.ot-members-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 15px;
-}
+/* Grid de Membros - Antigo (Mantido se necessário, mas substituído pelo novo layout) */
+.ot-members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
 
-.ot-member-item {
-    background: #fff;
-    padding: 15px 20px;
-    border-radius: 8px;
+/* NOVO LAYOUT */
+.ot-layout-grid {
     display: flex;
-    align-items: center;
-    border-left: 3px solid #eee;
-    transition: all 0.3s ease;
-    opacity: 0;
-    transform: translateX(-10px);
-    animation: slideInRight 0.4s forwards;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    flex-direction: row-reverse; /* Board on right, Council on left */
+    gap: 40px;
+    text-align: left;
+}
+@media (max-width: 768px) {
+    .ot-layout-grid {
+        flex-direction: column;
+    }
 }
 
-.ot-member-item:hover {
-    border-left-color: var(--c-gold);
-    transform: translateX(5px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-}
-
-.ot-icon {
-    width: 24px;
-    height: 24px;
+/* Coluna Diretoria (Board) */
+.ot-col-board {
+    flex: 1;
+    min-width: 300px;
+    border-left: 1px solid rgba(0,0,0,0.1);
+    padding-left: 40px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    background: rgba(11, 43, 91, 0.1);
-    color: var(--c-blue-dark);
-    border-radius: 50%;
-    margin-right: 15px;
+}
+.ot-board-item {
+    margin-bottom: 20px;
+}
+.ot-board-label {
+    display: block;
     font-size: 12px;
-}
-
-.ot-name {
-    font-family: 'Open Sans', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: #444;
-}
-
-/* ===== 6. CONTROLES ===== */
-.ot-controls {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 40px;
-}
-
-.ot-btn {
-    background: #fff;
-    color: var(--c-blue-dark);
-    border: 1px solid var(--c-blue-dark);
-    padding: 10px 24px;
-    border-radius: 30px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 700;
     text-transform: uppercase;
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    color: var(--c-gold);
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+}
+.ot-board-name {
+    display: block;
+    font-size: 18px;
+    color: var(--c-blue-dark);
+    font-weight: 600;
 }
 
-.ot-btn:hover:not(:disabled) {
-    background: var(--c-blue-dark);
-    color: #fff;
-    box-shadow: 0 5px 15px rgba(11, 43, 91, 0.2);
+/* Coluna Conselheiros */
+.ot-col-council {
+    flex: 2;
+}
+.ot-council-group {
+    margin-bottom: 30px;
+}
+.ot-council-group h4 {
+    font-size: 16px;
+    color: var(--c-blue-light);
+    border-bottom: 2px solid #eee;
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+    font-weight: 700;
+}
+.ot-council-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+.ot-council-list span {
+    font-size: 14px;
+    color: #555;
+    background: #f9f9f9;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+}
+.ot-council-list span:hover {
+    background: #fff;
+    border-left-color: var(--c-gold);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
-.ot-btn:disabled {
-    opacity: 0.3;
-    border-color: #ccc;
-    color: #999;
-    cursor: not-allowed;
+
+.ot-member-item { background: #fff; padding: 18px 25px; border-radius: 10px; display: flex; align-items: center; border-left: 4px solid #f0f0f0; transition: all 0.3s; }
+.ot-member-item:hover { border-left-color: var(--c-gold); transform: translateX(8px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+.ot-controls { display: flex; justify-content: center; gap: 30px; margin-top: 50px; }
+.ot-btn { background: #fff; color: var(--c-blue-dark); border: 1px solid var(--c-blue-dark); padding: 12px 30px; border-radius: 40px; cursor: pointer; font-weight: 700; transition: all 0.3s; }
+.ot-btn:hover:not(:disabled) { background: var(--c-blue-dark); color: #fff; }
+@media (max-width: 1024px) { 
+    .ot-container { padding: 0 20px; } 
+    .ot-card { padding: 30px; }
+    .ot-col-board { border-left: none; padding-left: 0; border-top: 1px solid #eee; padding-top: 30px; margin-top: 30px; } 
+}
+`;
+
+.ot - btn:disabled {
+  opacity: 0.3;
+  border - color: #ccc;
+  color: #999;
+  cursor: not - allowed;
 }
 
 /* ===== 7. ANIMAÇÕES GLOBAIS ===== */
@@ -556,14 +726,14 @@ const timelineStyles = `
 }
 
 /* Responsividade */
-@media (max-width: 768px) {
-    .ot-header h2 { font-size: 24px; }
-    .ot-node { width: 100px; }
-    .ot-card { padding: 25px 20px; }
-    .ot-members-grid { grid-template-columns: 1fr; }
-    .ot-track-wrapper {
-        -webkit-mask-image: none;
-        mask-image: none;
-    }
+@media(max - width: 768px) {
+    .ot - header h2 { font - size: 24px; }
+    .ot - node { width: 100px; }
+    .ot - card { padding: 25px 20px; }
+    .ot - members - grid { grid - template - columns: 1fr; }
+    .ot - track - wrapper {
+    -webkit - mask - image: none;
+    mask - image: none;
+  }
 }
 `;
