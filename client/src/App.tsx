@@ -6,17 +6,21 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
+import TimelinesAdmin from "./pages/TimelinesAdmin";
 import Timeline from "./pages/Timeline";
 import LoginLocal from "./pages/LoginLocal";
 
 function Router() {
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/login-local"} component={LoginLocal} />
-      <Route path={"/admin"} component={Admin} />
-      <Route path={"/timeline"} component={Timeline} />
-      <Route path={"/404"} component={NotFound} />
+      <Route path="/" component={Home} />
+      <Route path="/login-local" component={LoginLocal} />
+      <Route path="/admin" component={TimelinesAdmin} />
+      <Route path="/admin/timelines" component={TimelinesAdmin} />
+      <Route path="/admin/:timelineId" component={Admin} />
+      <Route path="/timeline" component={Timeline} />
+      <Route path="/timeline/:slug" component={Timeline} />
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
