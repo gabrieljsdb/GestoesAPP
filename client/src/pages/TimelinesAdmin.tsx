@@ -88,7 +88,11 @@ export default function TimelinesAdmin() {
               <Card key={timeline.id}>
                 <CardHeader>
                   <CardTitle>{timeline.name}</CardTitle>
-                  <CardDescription>/{timeline.slug}</CardDescription>
+                  <CardDescription>
+                    <div>/{timeline.slug}</div>
+                    {/* @ts-ignore */}
+                    <div className="text-xs text-muted-foreground mt-1">Criado por: {timeline.authorName || "Desconhecido"}</div>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col gap-2">
@@ -99,7 +103,7 @@ export default function TimelinesAdmin() {
                       <Button className="flex-1" variant="ghost" onClick={() => window.open(`/timeline/${timeline.slug}`, '_blank')}>
                         <ExternalLink className="mr-2 h-4 w-4" /> Ver Pública
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => { if(confirm("Deletar timeline?")) deleteMutation.mutate({ id: timeline.id }) }}>
+                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Deletar timeline?")) deleteMutation.mutate({ id: timeline.id }) }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>

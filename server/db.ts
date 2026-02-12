@@ -72,6 +72,43 @@ export async function getAllTimelines() {
   return await db.select().from(timelines).orderBy(desc(timelines.createdAt));
 }
 
+export async function getTimelinesWithAuthor() {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select({
+    id: timelines.id,
+    name: timelines.name,
+    slug: timelines.slug,
+    description: timelines.description,
+    ownerId: timelines.ownerId,
+    createdAt: timelines.createdAt,
+    updatedAt: timelines.updatedAt,
+    authorName: localAdmins.fullName
+  })
+    .from(timelines)
+    .leftJoin(localAdmins, eq(timelines.ownerId, localAdmins.id))
+    .orderBy(desc(timelines.createdAt));
+}
+
+export async function getTimelinesByOwnerWithAuthor(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select({
+    id: timelines.id,
+    name: timelines.name,
+    slug: timelines.slug,
+    description: timelines.description,
+    ownerId: timelines.ownerId,
+    createdAt: timelines.createdAt,
+    updatedAt: timelines.updatedAt,
+    authorName: localAdmins.fullName
+  })
+    .from(timelines)
+    .leftJoin(localAdmins, eq(timelines.ownerId, localAdmins.id))
+    .where(eq(timelines.ownerId, ownerId))
+    .orderBy(desc(timelines.createdAt));
+}
+
 export async function getTimelineBySlug(slug: string) {
   const db = await getDb();
   if (!db) return undefined;
@@ -205,6 +242,13 @@ export async function revokePermission(adminId: number, timelineId: number) {
       eq(timelinePermissions.timelineId, timelineId)
     )
   );
+}
+
+export async function getLocalAdminById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(localAdmins).where(eq(localAdmins.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
 }
 
 // ===== COMBINED HELPERS =====

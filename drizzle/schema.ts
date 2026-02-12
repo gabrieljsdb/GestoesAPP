@@ -76,6 +76,7 @@ export const localAdmins = mysqlTable("localAdmins", {
   email: varchar("email", { length: 320 }),
   passwordHash: text("passwordHash").notNull(),
   fullName: varchar("fullName", { length: 255 }),
+  role: mysqlEnum("role", ["admin", "superadmin"]).default("admin").notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   lastLogin: timestamp("lastLogin"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

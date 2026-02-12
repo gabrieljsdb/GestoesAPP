@@ -41,7 +41,12 @@ export const appRouter = router({
       // But based on localAdmins table, we should filter by ownerId
       // Assuming 'ctx.user?.role' refers to the global user role. 
       // If we want strict isolation for local admins:
-      return await db.getTimelinesByOwner(adminId);
+      const admin = await db.getLocalAdminById(adminId);
+      if (admin?.role === 'superadmin') {
+        return await db.getTimelinesWithAuthor();
+      }
+
+      return await db.getTimelinesByOwnerWithAuthor(adminId);
     }),
 
     get: publicProcedure
