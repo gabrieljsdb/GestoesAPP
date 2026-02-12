@@ -82,13 +82,13 @@ export default function Timeline() {
     const otherMembers = data.members.filter((m: any) => !m.role || !['presidente', 'vice_presidente', 'secretario_geral', 'secretario_adjunto', 'tesoureiro', 'conselheiro_titular', 'conselheiro_suplente'].includes(m.role));
 
     // Helper for Pill HTML
-    const createPillHTML = (name: string, label: string, delay: number = 0) => `
+    const createPillHTML = (name: string, label: string, showLabel: boolean = true, delay: number = 0) => `
         <div class="ot-member-pill" style="animation-delay: ${delay}s">
             <div class="ot-check-circle">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </div>
             <div class="ot-member-text">
-                <span class="ot-role-label">${label}:</span>
+                ${showLabel ? `<span class="ot-role-label">${label}:</span>` : ''}
                 <span class="ot-member-name">${name}</span>
             </div>
         </div>
@@ -98,7 +98,7 @@ export default function Timeline() {
     const boardHTML = boardRoles.map((r, i) => {
       const member = getMembersByRole(r.role)[0];
       if (!member) return '';
-      return createPillHTML(member.name, r.label, i * 0.05);
+      return createPillHTML(member.name, r.label, true, i * 0.05);
     }).join('');
 
     // Generate Councilor Content (Right Side Content)
@@ -108,7 +108,7 @@ export default function Timeline() {
             <div class="ot-council-group">
                 <h4 class="ot-group-title">${title}</h4>
                 <div class="ot-pill-grid">
-                    ${members.map((m, i) => createPillHTML(m.name, title, baseDelay + (i * 0.05))).join('')}
+                    ${members.map((m, i) => createPillHTML(m.name, title, false, baseDelay + (i * 0.05))).join('')}
                 </div>
             </div>
         `;
