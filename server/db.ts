@@ -1,9 +1,9 @@
 import { eq, desc, asc, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { 
+import {
   InsertUser, users, gestoes, members, timelines, timelinePermissions, localAdmins,
   InsertGestao, InsertMember, InsertTimeline, InsertTimelinePermission,
-  Gestao, Member, Timeline, TimelinePermission 
+  Gestao, Member, Timeline, TimelinePermission
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -77,6 +77,12 @@ export async function getTimelineBySlug(slug: string) {
   if (!db) return undefined;
   const result = await db.select().from(timelines).where(eq(timelines.slug, slug)).limit(1);
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getTimelinesByOwner(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(timelines).where(eq(timelines.ownerId, ownerId)).orderBy(desc(timelines.createdAt));
 }
 
 export async function createTimeline(data: InsertTimeline) {

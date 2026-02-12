@@ -27,6 +27,7 @@ export const timelines = mysqlTable("timelines", {
   name: varchar("name", { length: 100 }).notNull(),
   slug: varchar("slug", { length: 100 }).notNull().unique(), // Used in the URL
   description: text("description"),
+  ownerId: int("ownerId"), // ID of the localAdmin who owns this timeline
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

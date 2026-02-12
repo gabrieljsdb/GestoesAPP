@@ -34,11 +34,14 @@ export const appRouter = router({
   timelines: router({
     list: adminProcedure.query(async ({ ctx }) => {
       const adminId = getLocalAdminId(ctx);
-      const allTimelines = await db.getAllTimelines();
-      if (ctx.user?.role === 'admin') return allTimelines;
-      const permissions = await db.getPermissionsByAdminId(adminId);
-      const allowedIds = permissions.map(p => p.timelineId);
-      return allTimelines.filter(t => allowedIds.includes(t.id));
+      if (!adminId) return [];
+
+
+      // If super-admin (role 'admin' in users table, distinct from localAdmin), they might see all
+      // But based on localAdmins table, we should filter by ownerId
+      // Assuming 'ctx.user?.role' refers to the global user role. 
+      // If we want strict isolation for local admins:
+      return await db.getTimelinesByOwner(adminId);
     }),
 
     get: publicProcedure
@@ -53,8 +56,17 @@ export const appRouter = router({
       .input(z.object({ timelineId: z.number() }))
       .query(async ({ input, ctx }) => {
         const adminId = getLocalAdminId(ctx);
+        // Owner check or permission check
+        const timeline = await db.getTimelineWithGestoesAndMembers(input.timelineId.toString()); // verifying existence/ownership? 
+        // For now, relying on checkPermission for legacy or direct ownership check
+        // We should strictly check ownership if we want to enforce it.
+        // But for backward compatibility with permissions:
         if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.timelineId))) {
-          throw new TRPCError({ code: 'FORBIDDEN' });
+          // Also check if owner
+          const t = (await db.getAllTimelines()).find(t => t.id === input.timelineId);
+          if (t?.ownerId !== adminId) {
+            throw new TRPCError({ code: 'FORBIDDEN' });
+          }
         }
         const gestoes = await db.getGestoesByTimelineId(input.timelineId);
         const data = await Promise.all(gestoes.map(async g => ({
@@ -71,11 +83,14 @@ export const appRouter = router({
         description: z.string().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
-        const id = await db.createTimeline(input);
         const adminId = getLocalAdminId(ctx);
-        if (adminId) {
-          await db.grantPermission({ adminId, timelineId: id, canEdit: true, canDelete: true });
-        }
+        if (!adminId) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+        const id = await db.createTimeline({ ...input, ownerId: adminId });
+
+        // Grant permissions as a fallback/redundancy
+        await db.grantPermission({ adminId, timelineId: id, canEdit: true, canDelete: true });
+
         return { id };
       }),
 
