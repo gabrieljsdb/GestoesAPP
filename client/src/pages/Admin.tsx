@@ -112,6 +112,55 @@ export default function Admin() {
     createMutation.mutate({ timelineId, period: newPeriod, startActive: newStartActive, members });
   };
 
+  /* Existing code kept until return statement */
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingGestao, setEditingGestao] = useState<any>(null);
+  const [editPeriod, setEditPeriod] = useState("");
+  const [editStartActive, setEditStartActive] = useState(false);
+  const [newMemberName, setNewMemberName] = useState("");
+
+  const updateGestaoMutation = trpc.gestoes.update.useMutation({
+    onSuccess: () => {
+      utils.gestoes.list.invalidate();
+      toast.success("Gestão atualizada!");
+    }
+  });
+
+  const createMemberMutation = trpc.members.create.useMutation({
+    onSuccess: () => {
+      utils.gestoes.list.invalidate();
+      setNewMemberName("");
+      toast.success("Membro adicionado!");
+    }
+  });
+
+  const handleEdit = (gestao: any) => {
+    setEditingGestao(gestao);
+    setEditPeriod(gestao.period);
+    setEditStartActive(gestao.startActive);
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingGestao) return;
+    updateGestaoMutation.mutate({
+      id: editingGestao.id,
+      period: editPeriod,
+      startActive: editStartActive
+    });
+    setIsEditOpen(false);
+  };
+
+  const handleAddMember = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGestao || !newMemberName.trim()) return;
+    createMemberMutation.mutate({
+      gestaoId: editingGestao.id,
+      name: newMemberName.trim(),
+      displayOrder: editingGestao.members.length
+    });
+  };
+
   const handleExport = async () => {
     if (!timelineId) return;
     const data = await utils.client.timelines.export.query({ timelineId });
@@ -152,6 +201,36 @@ export default function Admin() {
                 <DialogFooter><Button onClick={handleCreate} disabled={createMutation.isPending}>Criar</Button></DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader><DialogTitle>Editar Gestão</DialogTitle></DialogHeader>
+                <div className="space-y-6 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Período</Label><Input value={editPeriod} onChange={e => setEditPeriod(e.target.value)} /></div>
+                    <div className="flex items-center space-x-2 pt-8"><Switch checked={editStartActive} onCheckedChange={setEditStartActive} /><Label>Gestão Ativa</Label></div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label>Membros</Label>
+                    <form onSubmit={handleAddMember} className="flex gap-2">
+                      <Input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="Novo membro (ex: Tesoureiro: Fulano)" />
+                      <Button type="submit" disabled={createMemberMutation.isPending}><Plus className="h-4 w-4" /></Button>
+                    </form>
+
+                    <div className="max-h-[300px] overflow-y-auto space-y-2 border rounded-md p-2">
+                      {gestoes?.find(g => g.id === editingGestao?.id)?.members.map((member: any) => (
+                        <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted">
+                          <span>{member.name}</span>
+                          <Button variant="ghost" size="sm" onClick={() => deleteMemberMutation.mutate({ id: member.id })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter><Button onClick={handleSaveEdit} disabled={updateGestaoMutation.isPending}>Salvar Alterações</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -160,7 +239,7 @@ export default function Admin() {
             <SortableContext items={gestoes?.map(g => g.id) || []} strategy={verticalListSortingStrategy}>
               <div className="grid gap-4">
                 {gestoes?.map(gestao => (
-                  <SortableGestaoCard key={gestao.id} gestao={gestao} onEdit={() => { }} onDelete={id => confirm("Deletar?") && deleteMutation.mutate({ id })} onDeleteMember={id => confirm("Deletar membro?") && deleteMemberMutation.mutate({ id })} />
+                  <SortableGestaoCard key={gestao.id} gestao={gestao} onEdit={handleEdit} onDelete={id => confirm("Deletar?") && deleteMutation.mutate({ id })} onDeleteMember={id => confirm("Deletar membro?") && deleteMemberMutation.mutate({ id })} />
                 ))}
               </div>
             </SortableContext>
