@@ -12,8 +12,9 @@ export default function Timeline() {
 
   const trackRef = useRef<HTMLDivElement>(null);
   const contentAreaRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [nodes, setNodes] = useState<HTMLDivElement[]>([]);
+  const nodeRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const dragState = useRef({
     isDown: false,
@@ -23,51 +24,39 @@ export default function Timeline() {
     momentumID: 0,
   });
 
-  useEffect(() => {
-    if (!gestoes || gestoes.length === 0) return;
+  const sortedGestoes = gestoes ? [...gestoes].sort((a, b) => b.displayOrder - a.displayOrder) : [];
 
-    const sortedGestoes = [...gestoes].sort((a, b) => b.displayOrder - a.displayOrder);
+  useEffect(() => {
+    if (sortedGestoes.length === 0) return;
+
+    // Determine initial active index
     const initialIndex = sortedGestoes.findIndex((g) => g.startActive);
     const targetIndex = initialIndex >= 0 ? initialIndex : sortedGestoes.length - 1;
 
-    setActiveIndex(targetIndex);
-    renderNodes(sortedGestoes);
-    setTimeout(() => activateNode(targetIndex, sortedGestoes, true), 100);
-  }, [gestoes]);
+    // Only set if not already set or invalid
+    if (activeIndex === null) {
+      setActiveIndex(targetIndex);
+      setTimeout(() => {
+        centerNode(targetIndex);
+        renderCard(sortedGestoes[targetIndex], true);
+      }, 300); // Increased timeout to ensure layout is ready
+    }
+  }, [sortedGestoes]);
 
-  const renderNodes = (sortedGestoes: any[]) => {
-    if (!trackRef.current) return;
-    trackRef.current.innerHTML = "";
-    const newNodes: HTMLDivElement[] = [];
+  // Handle activeIndex changes (clicked or navigated)
+  useEffect(() => {
+    if (activeIndex !== null && sortedGestoes[activeIndex]) {
+      // Update active class on nodes manually if needed, or rely on React
+      // Since we render with React now, the class active is applied in JSX
+      // But we need to center it and show card
+      centerNode(activeIndex);
+      renderCard(sortedGestoes[activeIndex], false);
+    }
+  }, [activeIndex]);
 
-    sortedGestoes.forEach((item, index) => {
-      const node = document.createElement("div");
-      node.className = "ot-node";
-      node.innerHTML = `
-        <div class="ot-dot"></div>
-        <span class="ot-year">${item.period}</span>
-        <div class="ot-connector"></div>
-      `;
-      node.addEventListener("click", () => {
-        if (Math.abs(dragState.current.velX) < 2) activateNode(index, sortedGestoes);
-      });
-      trackRef.current?.appendChild(node);
-      newNodes.push(node);
-    });
-    setNodes(newNodes);
-  };
-
-  const activateNode = (index: number, sortedGestoes: any[], firstRun = false) => {
-    if (index < 0 || index >= sortedGestoes.length) return;
-    setActiveIndex(index);
-    nodes.forEach((n) => n.classList.remove("active"));
-    if (nodes[index]) nodes[index].classList.add("active");
-    centerNode(index);
-    renderCard(sortedGestoes[index], firstRun);
-  };
 
   const centerNode = (index: number) => {
-    const node = nodes[index];
+    const node = nodeRefs.current[index];
     const track = trackRef.current;
     if (!node || !track) return;
     const trackCenter = track.clientWidth / 2;
@@ -96,6 +85,8 @@ export default function Timeline() {
       </div>
     `;
 
+    // Always just replace content for simplicity and ensure animation triggers
+    // If it's the same card, we might want to avoid flicker, but the original logic handled it well
     if (firstRun) {
       contentAreaRef.current.innerHTML = cardHTML;
     } else {
@@ -103,10 +94,20 @@ export default function Timeline() {
       if (currentCard) {
         currentCard.style.opacity = "0";
         currentCard.style.transform = "translateY(10px)";
-        setTimeout(() => { if (contentAreaRef.current) contentAreaRef.current.innerHTML = cardHTML; }, 300);
+        setTimeout(() => {
+          if (contentAreaRef.current) {
+            contentAreaRef.current.innerHTML = cardHTML;
+          }
+        }, 300);
       } else {
         contentAreaRef.current.innerHTML = cardHTML;
       }
+    }
+  };
+
+  const handleNodeClick = (index: number) => {
+    if (Math.abs(dragState.current.velX) < 2) {
+      setActiveIndex(index);
     }
   };
 
@@ -148,8 +149,6 @@ export default function Timeline() {
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]"><p>Carregando...</p></div>;
   if (!gestoes || gestoes.length === 0) return <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]"><p>Nenhuma gestão encontrada.</p></div>;
 
-  const sortedGestoes = [...gestoes].sort((a, b) => b.displayOrder - a.displayOrder);
-
   return (
     <>
       <style>{timelineStyles}</style>
@@ -161,15 +160,28 @@ export default function Timeline() {
           </div>
           <div className="ot-track-wrapper">
             <div className="ot-line-background"></div>
-            <div className="ot-track" ref={trackRef} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onMouseMove={handleMouseMove}></div>
+            <div className="ot-track" ref={trackRef} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onMouseMove={handleMouseMove}>
+              {sortedGestoes.map((item, index) => (
+                <div
+                  key={item.id}
+                  className={`ot-node ${index === activeIndex ? 'active' : ''}`}
+                  ref={el => nodeRefs.current[index] = el}
+                  onClick={() => handleNodeClick(index)}
+                >
+                  <div className="ot-dot"></div>
+                  <span className="ot-year">{item.period}</span>
+                  <div className="ot-connector"></div>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="ot-content-wrapper" ref={contentAreaRef}></div>
           <div className="ot-controls">
-            <button className="ot-btn" onClick={() => activateNode(activeIndex - 1, sortedGestoes)} disabled={activeIndex === 0}>
+            <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.max(0, activeIndex - 1))} disabled={activeIndex === 0}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
               Anterior
             </button>
-            <button className="ot-btn" onClick={() => activateNode(activeIndex + 1, sortedGestoes)} disabled={activeIndex === sortedGestoes.length - 1}>
+            <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.min(sortedGestoes.length - 1, activeIndex + 1))} disabled={activeIndex === sortedGestoes.length - 1}>
               Próximo
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
             </button>
