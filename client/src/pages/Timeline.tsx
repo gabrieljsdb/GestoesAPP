@@ -5,10 +5,10 @@ import { useRoute } from "wouter";
 export default function Timeline() {
   const [, params] = useRoute("/timeline/:slug?");
   const slug = params?.slug || "default";
-  
+
   const { data: timelineData, isLoading } = trpc.timelines.get.useQuery({ slug });
   const gestoes = timelineData?.gestoes;
-  
+
   const trackRef = useRef<HTMLDivElement>(null);
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -25,7 +25,7 @@ export default function Timeline() {
   useEffect(() => {
     if (!gestoes || gestoes.length === 0) return;
 
-    const sortedGestoes = [...gestoes].sort((a, b) => a.displayOrder - b.displayOrder);
+    const sortedGestoes = [...gestoes].sort((a, b) => b.displayOrder - a.displayOrder);
     const initialIndex = sortedGestoes.findIndex((g) => g.startActive);
     const targetIndex = initialIndex >= 0 ? initialIndex : sortedGestoes.length - 1;
 
@@ -147,7 +147,7 @@ export default function Timeline() {
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]"><p>Carregando...</p></div>;
   if (!gestoes || gestoes.length === 0) return <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]"><p>Nenhuma gestão encontrada.</p></div>;
 
-  const sortedGestoes = [...gestoes].sort((a, b) => a.displayOrder - b.displayOrder);
+  const sortedGestoes = [...gestoes].sort((a, b) => b.displayOrder - a.displayOrder);
 
   return (
     <>
