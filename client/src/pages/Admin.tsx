@@ -90,7 +90,10 @@ export default function Admin() {
   const utils = trpc.useUtils();
   const { data: gestoes, isLoading } = trpc.gestoes.list.useQuery({ timelineId: timelineId! }, { enabled: !!timelineId });
 
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const createMutation = trpc.gestoes.create.useMutation({
     onSuccess: () => {
@@ -135,9 +138,10 @@ export default function Admin() {
   });
 
   const handleEdit = (gestao: any) => {
+    console.log("Opening edit for:", gestao);
     setEditingGestao(gestao);
-    setEditPeriod(gestao.period);
-    setEditStartActive(gestao.startActive);
+    setEditPeriod(gestao.period || "");
+    setEditStartActive(!!gestao.startActive);
     setIsEditOpen(true);
   };
 
