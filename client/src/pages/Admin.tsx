@@ -107,7 +107,7 @@ export default function Admin() {
   });
 
   const deleteMutation = trpc.gestoes.delete.useMutation({ onSuccess: () => { utils.gestoes.list.invalidate(); toast.success("Removido!"); } });
-  const deleteMutation = trpc.gestoes.delete.useMutation({ onSuccess: () => { utils.gestoes.list.invalidate(); toast.success("Removido!"); } });
+
   const deleteMemberMutation = trpc.members.delete.useMutation({ onSuccess: () => { utils.gestoes.list.invalidate(); toast.success("Membro removido!"); } });
 
   const handleCreate = () => {
