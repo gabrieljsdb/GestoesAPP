@@ -342,6 +342,7 @@ const timelineStyles = `
     box-shadow: 0 4px 12px rgba(0,0,0,0.03);
     transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
     animation: slideIn 0.5s backwards;
+    min-height: 56px; /* Ensure a minimum height for the pill */
 }
 
 @keyframes slideIn { from { opacity: 0; transform: translateX(-15px); } to { opacity: 1; transform: translateX(0); } }
@@ -366,9 +367,9 @@ const timelineStyles = `
 }
 .ot-check-circle svg { width: 14px; height: 14px; }
 
-.ot-member-text { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; overflow: hidden; }
-.ot-role-label { font-size: 14px; font-weight: 700; color: #1e293b; }
-.ot-member-name { font-size: 14px; font-weight: 600; color: var(--c-text-light); text-transform: uppercase; text-overflow: ellipsis; overflow: hidden; }
+.ot-member-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-family: 'Open Sans', sans-serif; }
+.ot-role-label { font-size: 14px; font-weight: 700; color: #1e293b; white-space: nowrap; }
+.ot-member-name { font-size: 14px; font-weight: 600; color: var(--c-text-light); text-transform: uppercase; }
 
 /* COUNCIL SPECIFIC */
 .ot-council-group { margin-bottom: 40px; }
