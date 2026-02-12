@@ -117,21 +117,39 @@ export default function Admin() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id || !gestoes) return;
+    console.log("DragEnd:", { active, over });
+
+    if (!over || active.id === over.id || !gestoes) {
+      console.log("Drag cancelled or invalid drop");
+      return;
+    }
 
     const oldIndex = gestoes.findIndex((g) => g.id === active.id);
     const newIndex = gestoes.findIndex((g) => g.id === over.id);
+
+    console.log("Indices:", { oldIndex, newIndex });
 
     if (oldIndex === -1 || newIndex === -1) return;
 
     const newGestoes = arrayMove(gestoes, oldIndex, newIndex);
 
     // Optimistic update
+    console.log("Optimistic update with:", newGestoes);
     utils.gestoes.list.setData({ timelineId: timelineId! }, newGestoes);
 
     reorderMutation.mutate({
       timelineId: timelineId!,
       items: newGestoes.map((g, index) => ({ id: g.id, displayOrder: index })),
+    }, {
+      onSuccess: () => {
+        console.log("Reorder success");
+        toast.success("Ordem atualizada com sucesso!");
+      },
+      onError: (err) => {
+        console.error("Reorder failed:", err);
+        toast.error("Erro ao reordenar: " + err.message);
+        utils.gestoes.list.invalidate(); // Revert on error
+      }
     });
   };
 
