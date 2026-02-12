@@ -109,10 +109,30 @@ export default function Admin() {
   const deleteMutation = trpc.gestoes.delete.useMutation({ onSuccess: () => { utils.gestoes.list.invalidate(); toast.success("Removido!"); } });
   const deleteMemberMutation = trpc.members.delete.useMutation({ onSuccess: () => { utils.gestoes.list.invalidate(); toast.success("Membro removido!"); } });
 
-  const handleCreate = () => {
-    if (!timelineId) return;
-    const members = newMembers.split("\n").map(m => m.trim()).filter(m => m.length > 0);
-    createMutation.mutate({ timelineId, period: newPeriod, startActive: newStartActive, members });
+  const reorderMutation = trpc.gestoes.reorder.useMutation({
+    onSuccess: () => {
+      utils.gestoes.list.invalidate();
+    },
+  });
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !gestoes) return;
+
+    const oldIndex = gestoes.findIndex((g) => g.id === active.id);
+    const newIndex = gestoes.findIndex((g) => g.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newGestoes = arrayMove(gestoes, oldIndex, newIndex);
+
+    // Optimistic update
+    utils.gestoes.list.setData({ timelineId: timelineId! }, newGestoes);
+
+    reorderMutation.mutate({
+      timelineId: timelineId!,
+      items: newGestoes.map((g, index) => ({ id: g.id, displayOrder: index })),
+    });
   };
 
   /* Existing code kept until return statement */
@@ -239,7 +259,7 @@ export default function Admin() {
         </div>
 
         {isLoading ? <p>Carregando...</p> : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={gestoes?.map(g => g.id) || []} strategy={verticalListSortingStrategy}>
               <div className="grid gap-4">
                 {gestoes?.map(gestao => (

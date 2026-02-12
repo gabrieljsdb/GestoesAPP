@@ -146,6 +146,20 @@ export const appRouter = router({
         return { id: gestaoId };
       }),
 
+    reorder: adminProcedure
+      .input(z.object({
+        timelineId: z.number(),
+        items: z.array(z.object({ id: z.number(), displayOrder: z.number() }))
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.timelineId))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await Promise.all(input.items.map(item => db.updateGestao(item.id, { displayOrder: item.displayOrder })));
+        return { success: true };
+      }),
+
     update: adminProcedure
       .input(z.object({
         id: z.number(),
