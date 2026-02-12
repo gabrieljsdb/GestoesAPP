@@ -136,7 +136,8 @@ export const appRouter = router({
             displayOrder: z.number().optional(),
             members: z.array(z.object({
               name: z.string(),
-              displayOrder: z.number().optional()
+              displayOrder: z.number().optional(),
+              role: z.string().optional()
             })).optional()
           }))
         })
@@ -162,7 +163,8 @@ export const appRouter = router({
               await db.createMember({
                 gestaoId,
                 name: mData.name,
-                displayOrder: mData.displayOrder ?? i
+                displayOrder: mData.displayOrder ?? i,
+                role: mData.role
               });
             }
           }
@@ -188,7 +190,7 @@ export const appRouter = router({
         period: z.string().min(1),
         startActive: z.boolean().optional(),
         displayOrder: z.number().optional(),
-        members: z.array(z.string()).optional(),
+        members: z.array(z.string()).optional(), // Legacy simple string array
       }))
       .mutation(async ({ input, ctx }) => {
         const adminId = getLocalAdminId(ctx);
@@ -259,13 +261,23 @@ export const appRouter = router({
 
   members: router({
     create: adminProcedure
-      .input(z.object({ gestaoId: z.number(), name: z.string().min(1), displayOrder: z.number().optional() }))
+      .input(z.object({
+        gestaoId: z.number(),
+        name: z.string().min(1),
+        displayOrder: z.number().optional(),
+        role: z.string().optional()
+      }))
       .mutation(async ({ input }) => {
         const id = await db.createMember(input);
         return { id };
       }),
     update: adminProcedure
-      .input(z.object({ id: z.number(), name: z.string().optional(), displayOrder: z.number().optional() }))
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        displayOrder: z.number().optional(),
+        role: z.string().optional()
+      }))
       .mutation(async ({ input }) => {
         await db.updateMember(input.id, input);
         return { success: true };

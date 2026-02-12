@@ -209,6 +209,10 @@ export default function Admin() {
   const [editStartActive, setEditStartActive] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
 
+  // State for adding new members with roles
+  const [role, setRole] = useState("conselheiro_titular");
+  const [isAddingMember, setIsAddingMember] = useState(false);
+
   const updateGestaoMutation = trpc.gestoes.update.useMutation({
     onSuccess: () => {
       utils.gestoes.list.invalidate();
@@ -225,7 +229,7 @@ export default function Admin() {
   });
 
   const handleEdit = (gestao: any) => {
-    console.log("Opening edit for:", gestao);
+    // console.log("Opening edit for:", gestao);
     setEditingGestao(gestao);
     setEditPeriod(gestao.period || "");
     setEditStartActive(!!gestao.startActive);
@@ -245,10 +249,12 @@ export default function Admin() {
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingGestao || !newMemberName.trim()) return;
+
     createMemberMutation.mutate({
       gestaoId: editingGestao.id,
       name: newMemberName.trim(),
-      displayOrder: editingGestao.members.length
+      displayOrder: editingGestao.members.length,
+      role: role
     });
   };
 
@@ -264,6 +270,16 @@ export default function Admin() {
     URL.revokeObjectURL(url);
     toast.success("JSON exportado!");
   };
+
+  const ROLES = [
+    { value: "presidente", label: "Presidente" },
+    { value: "vice_presidente", label: "Vice-Presidente" },
+    { value: "secretario_geral", label: "Secretário Geral" },
+    { value: "secretario_adjunto", label: "Secretário Geral Adjunto" },
+    { value: "tesoureiro", label: "Tesoureiro" },
+    { value: "conselheiro_titular", label: "Conselheiro Titular" },
+    { value: "conselheiro_suplente", label: "Conselheiro Suplente" },
+  ];
 
   if (!timelineId) return <DashboardLayout><div className="text-center py-20"><p>Selecione uma timeline no menu.</p><Link href="/admin/timelines"><Button className="mt-4">Ir para Timelines</Button></Link></div></DashboardLayout>;
 
@@ -306,7 +322,7 @@ export default function Admin() {
             </Dialog>
 
             <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Editar Gestão</DialogTitle></DialogHeader>
                 <div className="space-y-6 py-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -314,20 +330,74 @@ export default function Admin() {
                     <div className="flex items-center space-x-2 pt-8"><Switch checked={editStartActive} onCheckedChange={setEditStartActive} /><Label>Gestão Ativa</Label></div>
                   </div>
 
-                  <div className="space-y-4">
-                    <Label>Membros</Label>
-                    <form onSubmit={handleAddMember} className="flex gap-2">
-                      <Input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="Novo membro (ex: Tesoureiro: Fulano)" />
-                      <Button type="submit" disabled={createMemberMutation.isPending}><Plus className="h-4 w-4" /></Button>
-                    </form>
-
-                    <div className="max-h-[300px] overflow-y-auto space-y-2 border rounded-md p-2">
-                      {gestoes?.find(g => g.id === editingGestao?.id)?.members.map((member: any) => (
-                        <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted">
-                          <span>{member.name}</span>
-                          <Button variant="ghost" size="sm" onClick={() => deleteMemberMutation.mutate({ id: member.id })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  <div className="space-y-4 border-t pt-4">
+                    <h3 className="font-semibold">Adicionar Membro</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-1">
+                        <Label>Cargo</Label>
+                        <select
+                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={role}
+                          onChange={(e) => setRole(e.target.value)}
+                        >
+                          {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label>Nome</Label>
+                        <div className="flex gap-2">
+                          <Input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="Nome do membro" />
+                          <Button onClick={handleAddMember} disabled={createMemberMutation.isPending}><Plus className="h-4 w-4" /></Button>
                         </div>
-                      ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t pt-4">
+                    <Label>Membros Cadastrados</Label>
+                    <div className="space-y-4">
+                      {ROLES.map(roleGroup => {
+                        const membersInRole = gestoes?.find(g => g.id === editingGestao?.id)?.members
+                          .filter((m: any) => m.role === roleGroup.value || (!m.role && roleGroup.value === 'conselheiro_titular')); // Default to conselheiro if no role? Or maybe just show separately.
+
+                        // If no role logic: legacy members might not have role. Let's group them in "Sem Cargo" or Conselheiro. 
+                        // Better: show members with role in their group, and members without role in a specific group.
+                        // But for now simplest strict filter.
+                        const hasMembers = membersInRole && membersInRole.length > 0;
+
+                        if (!hasMembers) return null;
+
+                        return (
+                          <div key={roleGroup.value} className="space-y-2">
+                            <h4 className="text-sm font-semibold text-muted-foreground capitalize">{roleGroup.label}</h4>
+                            {membersInRole.map((member: any) => (
+                              <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted">
+                                <span>{member.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="ghost" size="sm" onClick={() => deleteMemberMutation.mutate({ id: member.id })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+
+                      {/* Members without role */}
+                      {(() => {
+                        const noRoleMembers = gestoes?.find(g => g.id === editingGestao?.id)?.members.filter((m: any) => !m.role);
+                        if (!noRoleMembers || noRoleMembers.length === 0) return null;
+                        return (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-muted-foreground">Sem Cargo Definido</h4>
+                            {noRoleMembers.map((member: any) => (
+                              <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted">
+                                <span>{member.name}</span>
+                                <Button variant="ghost" size="sm" onClick={() => deleteMemberMutation.mutate({ id: member.id })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>

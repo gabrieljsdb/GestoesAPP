@@ -59,6 +59,7 @@ export const members = mysqlTable("members", {
   id: int("id").autoincrement().primaryKey(),
   gestaoId: int("gestaoId").notNull(),
   name: text("name").notNull(),
+  role: varchar("role", { length: 50 }), // presidente, vice_presidente, etc.
   displayOrder: int("displayOrder").notNull().default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -195,6 +195,8 @@ export async function getMembersByGestaoId(gestaoId: number) {
   return await db.select().from(members).where(eq(members.gestaoId, gestaoId)).orderBy(asc(members.displayOrder));
 }
 
+// Note: InsertMember type is inferred from schema, which now has 'role'.
+
 export async function createMember(data: InsertMember) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
