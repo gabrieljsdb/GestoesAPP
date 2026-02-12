@@ -107,7 +107,14 @@ export default function Admin() {
   });
 
   const deleteMutation = trpc.gestoes.delete.useMutation({ onSuccess: () => { utils.gestoes.list.invalidate(); toast.success("Removido!"); } });
+  const deleteMutation = trpc.gestoes.delete.useMutation({ onSuccess: () => { utils.gestoes.list.invalidate(); toast.success("Removido!"); } });
   const deleteMemberMutation = trpc.members.delete.useMutation({ onSuccess: () => { utils.gestoes.list.invalidate(); toast.success("Membro removido!"); } });
+
+  const handleCreate = () => {
+    if (!timelineId) return;
+    const members = newMembers.split("\n").map(m => m.trim()).filter(m => m.length > 0);
+    createMutation.mutate({ timelineId, period: newPeriod, startActive: newStartActive, members });
+  };
 
   const reorderMutation = trpc.gestoes.reorder.useMutation({
     onSuccess: () => {
