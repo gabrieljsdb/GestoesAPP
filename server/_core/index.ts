@@ -36,6 +36,12 @@ async function startServer() {
   // API and OAuth routes under /config prefix to match Vite base
   const prefix = "/config";
 
+  // Redirect root to subpath
+  app.get("/", (_req, res) => res.redirect(prefix));
+
+  // OAuth callback under /config/api/oauth/callback
+  registerOAuthRoutes(app, prefix);
+
   // tRPC API
   app.use(
     `${prefix}/api/trpc`,
