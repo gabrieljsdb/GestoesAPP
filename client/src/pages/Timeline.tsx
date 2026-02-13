@@ -212,7 +212,31 @@ export default function Timeline() {
 
   const handleMouseUp = () => {
     dragState.current.isDown = false;
+    if (trackRef.current) trackRef.current.style.cursor = "grab";
     snapToNearest();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!trackRef.current) return;
+    dragState.current.isDown = true;
+    dragState.current.startX = e.touches[0].pageX - trackRef.current.offsetLeft;
+    dragState.current.scrollLeft = trackRef.current.scrollLeft;
+    cancelAnimationFrame(dragState.current.momentumID);
+    dragState.current.velX = 0;
+  };
+
+  const handleTouchEnd = () => {
+    dragState.current.isDown = false;
+    snapToNearest();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!dragState.current.isDown || !trackRef.current) return;
+    const x = e.touches[0].pageX - trackRef.current.offsetLeft;
+    const walk = (x - dragState.current.startX) * 1.5;
+    const prevScroll = trackRef.current.scrollLeft;
+    trackRef.current.scrollLeft = dragState.current.scrollLeft - walk;
+    dragState.current.velX = trackRef.current.scrollLeft - prevScroll;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -245,7 +269,7 @@ export default function Timeline() {
     if (!track) return;
 
     const blockScroll = (e: WheelEvent) => {
-      // If we are over the track or the header, block it
+      // If we are over the track or the header or the track-wrapper, block it
       const target = e.target as HTMLElement;
       if (track.contains(target) || target.closest('.ot-header') || target.closest('.ot-track-wrapper')) {
         e.preventDefault();
@@ -253,8 +277,25 @@ export default function Timeline() {
       }
     };
 
-    window.addEventListener('wheel', blockScroll, { passive: false });
-    return () => window.removeEventListener('wheel', blockScroll);
+    // Use capture to catch the event before it reaches any local handler
+    window.addEventListener('wheel', blockScroll, { passive: false, capture: true });
+
+    // Also block touchmove to prevent native bounce/scroll if not handled by our drag
+    const blockTouch = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (track.contains(target) || target.closest('.ot-track-wrapper')) {
+        // Only prevent if we're moving horizontally or if inside track
+        if (Math.abs(e.touches[0].clientX) > 0) {
+          // We let our own touch handler deal with it
+        }
+      }
+    };
+    track.addEventListener('touchmove', blockTouch, { passive: false });
+
+    return () => {
+      window.removeEventListener('wheel', blockScroll, { capture: true });
+      track.removeEventListener('touchmove', blockTouch);
+    };
   }, []);
 
   const snapToNearest = () => {
@@ -298,10 +339,13 @@ export default function Timeline() {
           <div className="ot-track-wrapper">
             <div className="ot-line-background"></div>
             <div className="ot-track" ref={trackRef}
-              onMouseDown={handleMouseDown}
+              onMouseDown={(e: any) => { handleMouseDown(e); e.currentTarget.style.cursor = "grabbing"; }}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
               onMouseMove={handleMouseMove}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchMove}
             >
               {sortedGestoes.map((item, index) => (
                 <div
@@ -381,8 +425,9 @@ const timelineStyles = `
     min-height: 100vh;
     padding: 60px 0;
     overflow-x: hidden;
-    overflow-y: hidden;
-    touch-action: pan-x;
+    /* Vertically allow scrolling for the card contents */
+    overflow-y: visible; 
+    touch-action: pan-y; /* Allow vertical scroll gestures */
 }
 
 .ot-container { max-width: 1440px; margin: 0 auto; padding: 0 40px; }
