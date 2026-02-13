@@ -239,6 +239,19 @@ export default function Timeline() {
     dragState.current.momentumID = requestAnimationFrame(step);
   };
 
+  // Properly block mouse wheel scroll using native passive:false listener
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const preventDefault = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+
+    track.addEventListener('wheel', preventDefault, { passive: false });
+    return () => track.removeEventListener('wheel', preventDefault);
+  }, []);
+
   const snapToNearest = () => {
     const track = trackRef.current;
     if (!track) return;
@@ -284,7 +297,6 @@ export default function Timeline() {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
               onMouseMove={handleMouseMove}
-              onWheel={(e) => e.preventDefault()}
             >
               {sortedGestoes.map((item, index) => (
                 <div
@@ -379,8 +391,8 @@ const timelineStyles = `
 /* TRACK */
 .ot-track-wrapper { 
     position: relative; 
-    height: 160px; 
-    margin-bottom: 30px; 
+    height: 220px; 
+    margin-bottom: 20px; 
     overflow: hidden;
     mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); 
     -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); 
@@ -437,7 +449,7 @@ const timelineStyles = `
 
 .ot-year { 
     position: absolute; 
-    top: 45px; 
+    top: 65px; 
     left: 50%;
     transform: translateX(-50%);
     font-size: 15px; 
@@ -449,7 +461,7 @@ const timelineStyles = `
 }
 
 .ot-node.active .ot-year { 
-    top: 15px; 
+    top: 30px; 
     font-size: 26px; 
     color: var(--c-blue-dark); 
     font-weight: 950; 
