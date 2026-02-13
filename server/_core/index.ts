@@ -33,21 +33,23 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
-  // OAuth callback under /api/oauth/callback
-  registerOAuthRoutes(app);
+  // API and OAuth routes under /config prefix to match Vite base
+  const prefix = "/config";
+
   // tRPC API
   app.use(
-    "/api/trpc",
+    `${prefix}/api/trpc`,
     createExpressMiddleware({
       router: appRouter,
       createContext,
     })
   );
+
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
-    await setupVite(app, server);
+    await setupVite(app, server, prefix);
   } else {
-    serveStatic(app);
+    serveStatic(app, prefix);
   }
 
   const preferredPort = parseInt(process.env.PORT || "3000");
