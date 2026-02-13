@@ -239,17 +239,22 @@ export default function Timeline() {
     dragState.current.momentumID = requestAnimationFrame(step);
   };
 
-  // Properly block mouse wheel scroll using native passive:false listener
+  // Forcefully block any wheel/scroll movement in the timeline area
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
 
-    const preventDefault = (e: WheelEvent) => {
-      e.preventDefault();
+    const blockScroll = (e: WheelEvent) => {
+      // If we are over the track or the header, block it
+      const target = e.target as HTMLElement;
+      if (track.contains(target) || target.closest('.ot-header') || target.closest('.ot-track-wrapper')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
 
-    track.addEventListener('wheel', preventDefault, { passive: false });
-    return () => track.removeEventListener('wheel', preventDefault);
+    window.addEventListener('wheel', blockScroll, { passive: false });
+    return () => window.removeEventListener('wheel', blockScroll);
   }, []);
 
   const snapToNearest = () => {
@@ -403,7 +408,7 @@ const timelineStyles = `
     align-items: center; 
     height: 100%; 
     padding: 0 50%; /* Centralização baseada no contêiner */
-    overflow-x: auto; 
+    overflow-x: hidden; 
     scrollbar-width: none; 
     -ms-overflow-style: none;
     user-select: none; 
