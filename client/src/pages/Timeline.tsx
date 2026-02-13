@@ -279,7 +279,13 @@ export default function Timeline() {
           </div>
           <div className="ot-track-wrapper">
             <div className="ot-line-background"></div>
-            <div className="ot-track" ref={trackRef} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onMouseMove={handleMouseMove}>
+            <div className="ot-track" ref={trackRef}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              onWheel={(e) => e.preventDefault()}
+            >
               {sortedGestoes.map((item, index) => (
                 <div
                   key={item.id}
