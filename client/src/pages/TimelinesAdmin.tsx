@@ -8,6 +8,7 @@ import { Plus, Pencil, Trash2, ExternalLink, Shield } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
+import { BASE_PATH } from "@/const";
 import DashboardLayout from "@/components/DashboardLayout";
 
 export default function TimelinesAdmin() {
@@ -100,7 +101,7 @@ export default function TimelinesAdmin() {
                       <Button className="w-full" variant="outline"><Pencil className="mr-2 h-4 w-4" /> Gerenciar Conteúdo</Button>
                     </Link>
                     <div className="flex gap-2">
-                      <Button className="flex-1" variant="ghost" onClick={() => window.open(`/timeline/${timeline.slug}`, '_blank')}>
+                      <Button className="flex-1" variant="ghost" onClick={() => window.open(`${BASE_PATH}/timeline/${timeline.slug}`, '_blank')}>
                         <ExternalLink className="mr-2 h-4 w-4" /> Ver Pública
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => { if (confirm("Deletar timeline?")) deleteMutation.mutate({ id: timeline.id }) }}>

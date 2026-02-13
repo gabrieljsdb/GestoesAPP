@@ -19,7 +19,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl } from "@/const";
+import { BASE_PATH, getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Users, Settings } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
@@ -72,7 +72,7 @@ export default function DashboardLayout({
           <div className="flex flex-col gap-3 w-full">
             <Button
               onClick={() => {
-                window.location.href = "/login-local";
+                window.location.href = `${BASE_PATH}/login-local`;
               }}
               size="lg"
               className="w-full shadow-lg hover:shadow-xl transition-all"
