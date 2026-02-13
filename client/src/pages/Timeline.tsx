@@ -300,7 +300,6 @@ export default function Timeline() {
                   <span className="ot-modal-role">{selectedMember.role?.replace(/_/g, ' ') || 'Conselheiro'}</span>
                   <h3 className="ot-modal-name">{selectedMember.name}</h3>
                   <div className="ot-modal-divider"></div>
-                  <p className="ot-modal-details">Membro da {timelineData?.name}</p>
                 </div>
               </div>
             </div>
