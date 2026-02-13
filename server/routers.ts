@@ -137,7 +137,8 @@ export const appRouter = router({
             members: z.array(z.object({
               name: z.string(),
               displayOrder: z.number().optional(),
-              role: z.string().optional()
+              role: z.string().optional(),
+              photoUrl: z.string().optional()
             })).optional()
           }))
         })
@@ -164,7 +165,8 @@ export const appRouter = router({
                 gestaoId,
                 name: mData.name,
                 displayOrder: mData.displayOrder ?? i,
-                role: mData.role
+                role: mData.role,
+                photoUrl: mData.photoUrl
               });
             }
           }
@@ -265,7 +267,8 @@ export const appRouter = router({
         gestaoId: z.number(),
         name: z.string().min(1),
         displayOrder: z.number().optional(),
-        role: z.string().optional()
+        role: z.string().optional(),
+        photoUrl: z.string().optional()
       }))
       .mutation(async ({ input }) => {
         const id = await db.createMember(input);
@@ -276,7 +279,8 @@ export const appRouter = router({
         id: z.number(),
         name: z.string().optional(),
         displayOrder: z.number().optional(),
-        role: z.string().optional()
+        role: z.string().optional(),
+        photoUrl: z.string().optional()
       }))
       .mutation(async ({ input }) => {
         await db.updateMember(input.id, input);

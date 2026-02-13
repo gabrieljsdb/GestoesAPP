@@ -208,6 +208,7 @@ export default function Admin() {
   const [editPeriod, setEditPeriod] = useState("");
   const [editStartActive, setEditStartActive] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
+  const [newPhotoUrl, setNewPhotoUrl] = useState("");
 
   // State for adding new members with roles
   const [role, setRole] = useState("conselheiro_titular");
@@ -254,8 +255,10 @@ export default function Admin() {
       gestaoId: editingGestao.id,
       name: newMemberName.trim(),
       displayOrder: editingGestao.members.length,
-      role: role
+      role: role,
+      photoUrl: newPhotoUrl.trim() || undefined
     });
+    setNewPhotoUrl("");
   };
 
   const handleExport = async () => {
@@ -344,10 +347,13 @@ export default function Admin() {
                         </select>
                       </div>
                       <div className="md:col-span-2">
-                        <Label>Nome</Label>
-                        <div className="flex gap-2">
+                        <Label>Nome e Foto (Opcional)</Label>
+                        <div className="flex flex-col gap-2">
                           <Input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="Nome do membro" />
-                          <Button onClick={handleAddMember} disabled={createMemberMutation.isPending}><Plus className="h-4 w-4" /></Button>
+                          <div className="flex gap-2">
+                            <Input value={newPhotoUrl} onChange={e => setNewPhotoUrl(e.target.value)} placeholder="URL da foto (ex: https://...)" />
+                            <Button onClick={handleAddMember} disabled={createMemberMutation.isPending}><Plus className="h-4 w-4" /></Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -372,7 +378,14 @@ export default function Admin() {
                             <h4 className="text-sm font-semibold text-muted-foreground capitalize">{roleGroup.label}</h4>
                             {membersInRole.map((member: any) => (
                               <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted">
-                                <span>{member.name}</span>
+                                <div className="flex items-center gap-3">
+                                  {member.photoUrl && (
+                                    <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                                      <img src={member.photoUrl} alt={member.name} className="h-full w-full object-cover" />
+                                    </div>
+                                  )}
+                                  <span className="font-medium text-sm">{member.name}</span>
+                                </div>
                                 <div className="flex items-center gap-2">
                                   <Button variant="ghost" size="sm" onClick={() => deleteMemberMutation.mutate({ id: member.id })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                 </div>
@@ -391,7 +404,14 @@ export default function Admin() {
                             <h4 className="text-sm font-semibold text-muted-foreground">Sem Cargo Definido</h4>
                             {noRoleMembers.map((member: any) => (
                               <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted">
-                                <span>{member.name}</span>
+                                <div className="flex items-center gap-3">
+                                  {member.photoUrl && (
+                                    <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                                      <img src={member.photoUrl} alt={member.name} className="h-full w-full object-cover" />
+                                    </div>
+                                  )}
+                                  <span className="font-medium text-sm">{member.name}</span>
+                                </div>
                                 <Button variant="ghost" size="sm" onClick={() => deleteMemberMutation.mutate({ id: member.id })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                               </div>
                             ))}

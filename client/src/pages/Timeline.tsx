@@ -15,6 +15,7 @@ export default function Timeline() {
   const nodeRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
 
   const dragState = useRef({
     isDown: false,
@@ -82,14 +83,14 @@ export default function Timeline() {
     const otherMembers = data.members.filter((m: any) => !m.role || !['presidente', 'vice_presidente', 'secretario_geral', 'secretario_adjunto', 'tesoureiro', 'conselheiro_titular', 'conselheiro_suplente'].includes(m.role));
 
     // Helper for Pill HTML
-    const createPillHTML = (name: string, label: string, showLabel: boolean = true, delay: number = 0) => `
-        <div class="ot-member-pill" style="animation-delay: ${delay}s">
+    const createPillHTML = (member: any, label: string, showLabel: boolean = true, delay: number = 0) => `
+        <div class="ot-member-pill" style="animation-delay: ${delay}s" data-member-id="${member.id}">
             <div class="ot-check-circle">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </div>
             <div class="ot-member-text">
                 ${showLabel ? `<span class="ot-role-label">${label}:</span>` : ''}
-                <span class="ot-member-name">${name}</span>
+                <span class="ot-member-name">${member.name}</span>
             </div>
         </div>
     `;
@@ -98,7 +99,7 @@ export default function Timeline() {
     const boardHTML = boardRoles.map((r, i) => {
       const member = getMembersByRole(r.role)[0];
       if (!member) return '';
-      return createPillHTML(member.name, r.label, true, i * 0.05);
+      return createPillHTML(member, r.label, true, i * 0.05);
     }).join('');
 
     // Generate Councilor Content (Right Side Content)
@@ -108,7 +109,7 @@ export default function Timeline() {
             <div class="ot-council-group">
                 <h4 class="ot-group-title">${title}</h4>
                 <div class="ot-pill-grid">
-                    ${members.map((m, i) => createPillHTML(m.name, title, false, baseDelay + (i * 0.05))).join('')}
+                    ${members.map((m, i) => createPillHTML(m, title, false, baseDelay + (i * 0.05))).join('')}
                 </div>
             </div>
         `;
@@ -166,6 +167,33 @@ export default function Timeline() {
       }
     }
   };
+
+  // Click handler for member pills via event delegation
+  useEffect(() => {
+    const handleContentClick = (e: MouseEvent) => {
+      const pill = (e.target as HTMLElement).closest(".ot-member-pill");
+      if (pill) {
+        const memberIdStr = pill.getAttribute("data-member-id");
+        if (memberIdStr) {
+          const mId = parseInt(memberIdStr);
+          const member = sortedGestoes.flatMap((g: any) => g.members).find((m: any) => m.id === mId);
+          if (member) {
+            setSelectedMember(member);
+          }
+        }
+      }
+    };
+
+    const contentArea = contentAreaRef.current;
+    if (contentArea) {
+      contentArea.addEventListener("click", handleContentClick);
+    }
+    return () => {
+      if (contentArea) {
+        contentArea.removeEventListener("click", handleContentClick);
+      }
+    };
+  }, [sortedGestoes]);
 
   const handleNodeClick = (index: number) => {
     if (Math.abs(dragState.current.velX) < 2) {
@@ -249,6 +277,35 @@ export default function Timeline() {
             </button>
           </div>
         </div>
+
+        {/* Member Popup Modal */}
+        {selectedMember && (
+          <div className="ot-modal-overlay" onClick={() => setSelectedMember(null)}>
+            <div className="ot-modal-content" onClick={e => e.stopPropagation()}>
+              <button className="ot-modal-close" onClick={() => setSelectedMember(null)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+
+              <div className="ot-modal-body">
+                <div className="ot-modal-image-container">
+                  {selectedMember.photoUrl ? (
+                    <img src={selectedMember.photoUrl} alt={selectedMember.name} className="ot-modal-image" />
+                  ) : (
+                    <div className="ot-modal-image-fallback">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                  )}
+                </div>
+                <div className="ot-modal-info">
+                  <span className="ot-modal-role">{selectedMember.role?.replace(/_/g, ' ') || 'Conselheiro'}</span>
+                  <h3 className="ot-modal-name">{selectedMember.name}</h3>
+                  <div className="ot-modal-divider"></div>
+                  <p className="ot-modal-details">Membro da {timelineData?.name}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -432,4 +489,111 @@ const timelineStyles = `
     .ot-node { width: 100px; }
     .ot-btn { padding: 12px 25px; }
 }
+
+/* MODAL STYLES */
+.ot-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 46, 90, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.ot-modal-content {
+    background: #fff;
+    width: 100%;
+    max-width: 450px;
+    border-radius: 32px;
+    position: relative;
+    box-shadow: 0 40px 100px -20px rgba(15, 46, 90, 0.3);
+    overflow: hidden;
+    animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalSlideUp { from { opacity: 0; transform: translateY(40px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.ot-modal-close {
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: none;
+    color: var(--c-text-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+}
+.ot-modal-close:hover { background: #e2e8f0; color: var(--c-blue-dark); transform: rotate(90deg); }
+.ot-modal-close svg { width: 20px; height: 20px; }
+
+.ot-modal-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 40px;
+    text-align: center;
+}
+
+.ot-modal-image-container {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 6px solid #fff;
+    box-shadow: 0 15px 35px rgba(15, 46, 90, 0.1);
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ot-modal-image { width: 100%; height: 100%; object-cover: cover; }
+.ot-modal-image-fallback { color: #cbd5e1; }
+.ot-modal-image-fallback svg { width: 60px; height: 60px; }
+
+.ot-modal-role {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 800;
+    color: var(--c-gold);
+    margin-bottom: 12px;
+    display: block;
+}
+
+.ot-modal-name {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--c-blue-dark);
+    line-height: 1.2;
+    margin: 0 0 20px 0;
+}
+
+.ot-modal-divider {
+    width: 40px;
+    height: 3px;
+    background: var(--c-gold);
+    border-radius: 2px;
+    margin-bottom: 25px;
+}
+
+.ot-modal-details {
+    font-size: 15px;
+    color: var(--c-text-light);
+    line-height: 1.6;
+    margin: 0;
+}
+
 `;
