@@ -284,18 +284,49 @@ const timelineStyles = `
 .ot-header::after { content: ''; display: block; width: 60px; height: 4px; background: var(--c-gold); margin: 25px auto 0; border-radius: 2px; }
 
 /* TRACK */
-.ot-track-wrapper { position: relative; height: 160px; margin-bottom: 30px; mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); }
-.ot-track { display: flex; align-items: center; height: 100%; padding: 0 50vw; overflow-x: auto; scrollbar-width: none; user-select: none; cursor: grab; }
+.ot-track-wrapper { 
+    position: relative; 
+    height: 160px; 
+    margin-bottom: 30px; 
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); 
+    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); 
+}
+
+.ot-track { 
+    display: flex; 
+    align-items: center; 
+    height: 100%; 
+    padding: 0 50%; /* Centralização baseada no contêiner */
+    overflow-x: auto; 
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
+    user-select: none; 
+    cursor: grab; 
+}
 .ot-track::-webkit-scrollbar { display: none; }
+
 .ot-line-background { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: #e2e8f0; transform: translateY(-50%); }
 
-.ot-node { position: relative; flex-shrink: 0; width: 160px; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: all 0.3s; opacity: 0.5; }
+.ot-node { 
+    position: relative; 
+    flex-shrink: 0; 
+    width: 200px; /* Mais espaço para evitar sobreposição */
+    height: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+    cursor: pointer; 
+    transition: all 0.3s; 
+    opacity: 0.5; 
+}
 .ot-node.active { opacity: 1; }
 .ot-dot { width: 14px; height: 14px; background: #fff; border: 3px solid var(--c-blue-dark); border-radius: 50%; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .ot-node:hover .ot-dot { transform: scale(1.4); border-color: var(--c-gold); }
 .ot-node.active .ot-dot { transform: scale(1.8); background: var(--c-gold); border-color: var(--c-blue-dark); box-shadow: 0 0 0 6px rgba(197, 160, 89, 0.2); }
 .ot-year { position: absolute; top: 40px; font-size: 14px; font-weight: 700; color: #94a3b8; transition: all 0.4s; }
-.ot-node.active .ot-year { top: 20px; font-size: 24px; color: var(--c-blue-dark); font-weight: 900; }
+.ot-node.active .ot-year { top: 22px; font-size: 24px; color: var(--c-blue-dark); font-weight: 900; }
 .ot-connector { position: absolute; top: 50%; width: 2px; height: 0; background: linear-gradient(to bottom, var(--c-blue-dark), transparent); transform: translateX(-50%); opacity: 0; transition: all 0.4s; }
 .ot-node.active .ot-connector { height: 120px; opacity: 1; }
 
