@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, Router as WouterRouter } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
@@ -12,17 +12,19 @@ import LoginLocal from "./pages/LoginLocal";
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/login-local" component={LoginLocal} />
-      <Route path="/admin" component={TimelinesAdmin} />
-      <Route path="/admin/timelines" component={TimelinesAdmin} />
-      <Route path="/admin/:timelineId" component={Admin} />
-      <Route path="/timeline" component={Timeline} />
-      <Route path="/timeline/:slug" component={Timeline} />
-      <Route path="/404" component={NotFound} />
-      <Route component={NotFound} />
-    </Switch>
+    <WouterRouter base="/config">
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/login-local" component={LoginLocal} />
+        <Route path="/admin" component={TimelinesAdmin} />
+        <Route path="/admin/timelines" component={TimelinesAdmin} />
+        <Route path="/admin/:timelineId" component={Admin} />
+        <Route path="/timeline" component={Timeline} />
+        <Route path="/timeline/:slug" component={Timeline} />
+        <Route path="/404" component={NotFound} />
+        <Route component={NotFound} />
+      </Switch>
+    </WouterRouter>
   );
 }
 
