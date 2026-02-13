@@ -33,11 +33,17 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // Request logging for debugging routing/subpath issues
+  app.use((req, _res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} (Original: ${req.originalUrl})`);
+    next();
+  });
   // API and OAuth routes under /config prefix to match Vite base
   const prefix = "/config";
 
-  // Redirect root to subpath
-  app.get("/", (_req, res) => res.redirect(prefix));
+  // Redirect root to subpath (explicitly ensure trailing slash for directory mapping)
+  app.get("/", (_req, res) => res.redirect(`${prefix}/`));
 
   // OAuth callback under /config/api/oauth/callback
   registerOAuthRoutes(app, prefix);

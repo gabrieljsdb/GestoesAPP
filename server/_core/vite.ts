@@ -24,8 +24,8 @@ export async function setupVite(app: Express, server: Server, prefix: string = "
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
-    // Skip catch-all for API requests
-    if (url.includes("/api/")) {
+    // Skip catch-all for API requests or if no prefix and we have one
+    if (url.includes("/api/") || (prefix && !url.startsWith(prefix) && url !== "/")) {
       return next();
     }
 
@@ -66,6 +66,11 @@ export function serveStatic(app: Express, prefix: string = "") {
   }
 
   app.use(prefix, express.static(distPath));
+
+  // Handle the prefix root itself (e.g. /config)
+  app.get(prefix, (_req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"));
+  });
 
   // fall through to index.html if the file doesn't exist
   app.use(`${prefix}/*`, (req, res, next) => {

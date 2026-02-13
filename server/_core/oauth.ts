@@ -44,7 +44,7 @@ export function registerOAuthRoutes(app: Express, prefix: string = "") {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-      res.redirect(302, prefix || "/");
+      res.redirect(302, prefix ? `${prefix}/` : "/");
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
       res.status(500).json({ error: "OAuth callback failed" });
