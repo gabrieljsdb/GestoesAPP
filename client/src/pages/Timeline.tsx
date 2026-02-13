@@ -212,7 +212,7 @@ export default function Timeline() {
 
   const handleMouseUp = () => {
     dragState.current.isDown = false;
-    beginMomentum();
+    snapToNearest();
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -228,12 +228,41 @@ export default function Timeline() {
   const beginMomentum = () => {
     const step = () => {
       if (!trackRef.current) return;
-      if (Math.abs(dragState.current.velX) < 0.5) return;
+      if (Math.abs(dragState.current.velX) < 0.5) {
+        snapToNearest();
+        return;
+      }
       trackRef.current.scrollLeft += dragState.current.velX;
       dragState.current.velX *= 0.95;
       dragState.current.momentumID = requestAnimationFrame(step);
     };
     dragState.current.momentumID = requestAnimationFrame(step);
+  };
+
+  const snapToNearest = () => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const trackCenter = track.scrollLeft + track.clientWidth / 2;
+    let closestIndex = 0;
+    let minDistance = Infinity;
+
+    nodeRefs.current.forEach((node, index) => {
+      if (node) {
+        const nodeCenter = node.offsetLeft + node.clientWidth / 2;
+        const distance = Math.abs(trackCenter - nodeCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIndex = index;
+        }
+      }
+    });
+
+    if (closestIndex !== activeIndex) {
+      setActiveIndex(closestIndex);
+    } else {
+      centerNode(closestIndex);
+    }
   };
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8]"><p>Carregando...</p></div>;
@@ -329,6 +358,8 @@ const timelineStyles = `
     min-height: 100vh;
     padding: 60px 0;
     overflow-x: hidden;
+    overflow-y: hidden;
+    touch-action: pan-x;
 }
 
 .ot-container { max-width: 1440px; margin: 0 auto; padding: 0 40px; }
@@ -381,9 +412,29 @@ const timelineStyles = `
 .ot-dot { width: 14px; height: 14px; background: #fff; border: 3px solid var(--c-blue-dark); border-radius: 50%; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .ot-node:hover .ot-dot { transform: scale(1.4); border-color: var(--c-gold); }
 .ot-node.active .ot-dot { transform: scale(1.8); background: var(--c-gold); border-color: var(--c-blue-dark); box-shadow: 0 0 0 6px rgba(197, 160, 89, 0.2); }
-.ot-year { position: absolute; top: 40px; font-size: 14px; font-weight: 700; color: #94a3b8; transition: all 0.4s; }
-.ot-node.active .ot-year { top: 22px; font-size: 24px; color: var(--c-blue-dark); font-weight: 900; }
-.ot-connector { position: absolute; top: 50%; width: 2px; height: 0; background: linear-gradient(to bottom, var(--c-blue-dark), transparent); transform: translateX(-50%); opacity: 0; transition: all 0.4s; }
+.ot-year { 
+    position: absolute; 
+    top: 40px; 
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px; 
+    font-weight: 700; 
+    color: #94a3b8; 
+    transition: all 0.4s; 
+    white-space: nowrap;
+}
+.ot-node.active .ot-year { top: 22px; font-size: 24px; color: var(--c-blue-dark); font-weight: 900; transform: translateX(-50%); }
+.ot-connector { 
+    position: absolute; 
+    top: 50%; 
+    left: 50%;
+    width: 2px; 
+    height: 0; 
+    background: linear-gradient(to bottom, var(--c-blue-dark), transparent); 
+    transform: translateX(-50%); 
+    opacity: 0; 
+    transition: all 0.4s; 
+}
 .ot-node.active .ot-connector { height: 120px; opacity: 1; }
 
 /* CARD IMPLEMENTATION (MATCHING IMAGE) */
