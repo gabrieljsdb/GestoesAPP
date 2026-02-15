@@ -24,26 +24,19 @@ function isSecureRequest(req: Request) {
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  // const hostname = req.hostname;
-  // const shouldSetDomain =
-  //   hostname &&
-  //   !LOCAL_HOSTS.has(hostname) &&
-  //   !isIpAddress(hostname) &&
-  //   hostname !== "127.0.0.1" &&
-  //   hostname !== "::1";
+  const hostname = req.hostname;
 
-  // const domain =
-  //   shouldSetDomain && !hostname.startsWith(".")
-  //     ? `.${hostname}`
-  //     : shouldSetDomain
-  //       ? hostname
-  //       : undefined;
+  // Set domain to .oab-sc.org.br if accessed via their subdomains
+  // This helps with session persistence across different subdomains (internal/external)
+  const domain = hostname.endsWith(".oab-sc.org.br")
+    ? ".oab-sc.org.br"
+    : undefined;
 
   return {
     httpOnly: true,
     path: "/",
     sameSite: "lax",
     secure: isSecureRequest(req),
-    domain: undefined,
+    domain,
   };
 }
