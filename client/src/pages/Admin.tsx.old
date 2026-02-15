@@ -1,0 +1,424 @@
+
+import { trpc } from "@/lib/trpc";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Pencil, Trash2, Download, GripVertical, ArrowLeft, Settings2 } from "lucide-react";
+import { toast } from "sonner";
+import DashboardLayout from "@/components/DashboardLayout";
+import { useState, useMemo, useEffect } from "react";
+import { useRoute, Link } from "wouter";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import type { Gestao, Member } from "@shared/types";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface GestaoWithMembers extends Partial<Gestao> {
+  id: number;
+  timelineId: number;
+  period: string;
+  startActive: boolean;
+  displayOrder: number;
+  members: Member[];
+}
+
+interface SortableGestaoCardProps {
+  gestao: GestaoWithMembers;
+  onEdit: (gestao: GestaoWithMembers) => void;
+  onDelete: (id: number) => void;
+  onDeleteMember: (memberId: number) => void;
+}
+
+function SortableGestaoCard({ gestao, onEdit, onDelete, onDeleteMember }: SortableGestaoCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: gestao.id });
+  const style = { 
+    transform: CSS.Transform.toString(transform), 
+    transition, 
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto' 
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card className="hover:border-primary/50 transition-colors">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors touch-none">
+                <GripVertical className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+              </div>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  Gestão {gestao.period}
+                  {gestao.startActive && (
+                    <span className="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
+                      Ativa
+                    </span>
+                  )}
+                </CardTitle>
+                <CardDescription>{gestao.members.length} membro(s) cadastrados</CardDescription>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onEdit(gestao)}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => onDelete(gestao.id)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {gestao.members.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic col-span-2">Nenhum membro vinculado.</p>
+            ) : (
+              gestao.members.map((member) => (
+                <div key={member.id} className="flex items-center justify-between p-2 bg-muted/30 rounded border border-border/50 group/member">
+                  <span className="text-xs truncate">{member.name}</span>
+                  <button 
+                    onClick={() => onDeleteMember(member.id)}
+                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover/member:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function Admin() {
+  const [, params] = useRoute("/admin/:timelineId");
+  const timelineId = params?.timelineId ? parseInt(params.timelineId) : null;
+
+  // Estados dos Modais
+  const [isGestaoModalOpen, setIsGestaoModalOpen] = useState(false);
+  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
+
+  // Estados de Edição Gestão
+  const [editingGestaoId, setEditingGestaoId] = useState<number | null>(null);
+  const [period, setPeriod] = useState("");
+  const [membersText, setMembersText] = useState("");
+  const [startActive, setStartActive] = useState(false);
+
+  // Estados de Edição Timeline
+  const [tlName, setTlName] = useState("");
+  const [tlDescription, setTlDescription] = useState("");
+  const [tlSlug, setTlSlug] = useState("");
+
+  const utils = trpc.useUtils();
+
+  // Queries
+  const { data: timeline, isLoading: isTimelineLoading } = trpc.timelines.getById.useQuery(
+    { id: timelineId! }, 
+    { enabled: !!timelineId }
+  );
+
+  const { data: gestoes, isLoading: isGestoesLoading } = trpc.gestoes.list.useQuery(
+    { timelineId: timelineId! }, 
+    { enabled: !!timelineId }
+  );
+
+  // Inicia campos da timeline quando os dados chegam
+  useEffect(() => {
+    if (timeline) {
+      setTlName(timeline.name);
+      setTlDescription(timeline.description || "");
+      setTlSlug(timeline.slug);
+    }
+  }, [timeline]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor), 
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  // Mutates
+  const updateTimelineMutation = trpc.timelines.update.useMutation({
+    onSuccess: () => {
+      utils.timelines.getById.invalidate({ id: timelineId! });
+      setIsTimelineModalOpen(false);
+      toast.success("Configurações da timeline atualizadas!");
+    },
+    onError: (err) => toast.error("Erro ao atualizar timeline: " + err.message)
+  });
+
+  const createGestaoMutation = trpc.gestoes.create.useMutation({
+    onSuccess: () => {
+      utils.gestoes.list.invalidate({ timelineId: timelineId! });
+      closeGestaoModal();
+      toast.success("Gestão criada com sucesso!");
+    },
+    onError: (err) => toast.error("Erro ao criar: " + err.message)
+  });
+
+  const updateGestaoMutation = trpc.gestoes.update.useMutation({
+    onSuccess: () => {
+      utils.gestoes.list.invalidate({ timelineId: timelineId! });
+      closeGestaoModal();
+      toast.success("Gestão atualizada!");
+    },
+    onError: (err) => toast.error("Erro ao atualizar: " + err.message)
+  });
+
+  const deleteGestaoMutation = trpc.gestoes.delete.useMutation({ 
+    onSuccess: () => { utils.gestoes.list.invalidate({ timelineId: timelineId! }); toast.success("Gestão removida!"); } 
+  });
+  
+  const deleteMemberMutation = trpc.members.delete.useMutation({ 
+    onSuccess: () => { utils.gestoes.list.invalidate({ timelineId: timelineId! }); toast.success("Membro removido!"); } 
+  });
+
+  const closeGestaoModal = () => {
+    setIsGestaoModalOpen(false);
+    setEditingGestaoId(null);
+    setPeriod("");
+    setMembersText("");
+    setStartActive(false);
+  };
+
+  const handleEditGestao = (gestao: GestaoWithMembers) => {
+    setEditingGestaoId(gestao.id);
+    setPeriod(gestao.period);
+    setStartActive(gestao.startActive);
+    setMembersText(gestao.members.map(m => m.name).join("\n"));
+    setIsGestaoModalOpen(true);
+  };
+
+  const handleSaveTimeline = () => {
+    if (!timelineId || !tlName.trim()) return;
+    updateTimelineMutation.mutate({
+      id: timelineId,
+      name: tlName,
+      description: tlDescription,
+      slug: tlSlug
+    });
+  };
+
+  const handleSaveGestao = () => {
+    if (!timelineId || !period.trim()) {
+      toast.error("O período é obrigatório.");
+      return;
+    }
+
+    const members = membersText.split("\n").map(m => m.trim()).filter(m => m.length > 0);
+
+    if (editingGestaoId) {
+      updateGestaoMutation.mutate({ 
+        id: editingGestaoId, 
+        period, 
+        startActive 
+      });
+    } else {
+      createGestaoMutation.mutate({ 
+        timelineId, 
+        period, 
+        startActive, 
+        members 
+      });
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+       toast.info("A reordenação persistente será habilitada em uma atualização futura.");
+    }
+  };
+
+  const handleExport = async () => {
+    if (!timelineId) return;
+    try {
+      const data = await utils.client.timelines.export.query({ timelineId });
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `timeline-${timelineId}-export.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("JSON exportado com sucesso!");
+    } catch (err) {
+      toast.error("Falha ao exportar dados.");
+    }
+  };
+
+  if (!timelineId) return (
+    <DashboardLayout>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
+        <div className="p-4 bg-muted rounded-full"><ArrowLeft className="h-8 w-8 text-muted-foreground" /></div>
+        <p className="text-lg font-medium">Nenhuma timeline selecionada.</p>
+        <Link href="/admin/timelines"><Button>Voltar para Lista de Timelines</Button></Link>
+      </div>
+    </DashboardLayout>
+  );
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header de Ações e Título da Timeline */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 overflow-hidden">
+            <Link href="/admin/timelines">
+              <Button variant="ghost" size="icon" className="rounded-full shrink-0">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div className="overflow-hidden">
+              {isTimelineLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold tracking-tight truncate">{timeline?.name}</h1>
+                  <Dialog open={isTimelineModalOpen} onOpenChange={setIsTimelineModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Configurações da Timeline</DialogTitle>
+                        <DialogDescription>Atualize as informações globais desta linha do tempo.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="tl-name">Título da Timeline</Label>
+                          <Input id="tl-name" value={tlName} onChange={e => setTlName(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="tl-slug">Identificador (URL Slug)</Label>
+                          <Input id="tl-slug" value={tlSlug} onChange={e => setTlSlug(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="tl-desc">Descrição / Subtítulo</Label>
+                          <Textarea id="tl-desc" value={tlDescription} onChange={e => setTlDescription(e.target.value)} rows={3} />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsTimelineModalOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleSaveTimeline} disabled={updateTimelineMutation.isPending}>Salvar Configurações</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
+              {!isTimelineLoading && (
+                <p className="text-sm text-muted-foreground truncate">{timeline?.description || "Sem descrição disponível."}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" /> Exportar
+            </Button>
+            <Dialog open={isGestaoModalOpen} onOpenChange={setIsGestaoModalOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={() => closeGestaoModal()}>
+                  <Plus className="mr-2 h-4 w-4" /> Nova Gestão
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{editingGestaoId ? "Editar Gestão" : "Criar Nova Gestão"}</DialogTitle>
+                  <DialogDescription>Preencha os dados do período administrativo.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="period">Período</Label>
+                    <Input id="period" value={period} onChange={e => setPeriod(e.target.value)} placeholder="Ex: 2024/2026" />
+                  </div>
+                  {!editingGestaoId && (
+                    <div className="space-y-2">
+                      <Label htmlFor="members">Membros (um por linha)</Label>
+                      <Textarea 
+                        id="members" 
+                        value={membersText} 
+                        onChange={e => setMembersText(e.target.value)} 
+                        placeholder="Presidente: Nome do Dr...\nVice: Nome da Dra..."
+                        className="min-h-[120px]"
+                      />
+                      <p className="text-[10px] text-muted-foreground italic">Dica: Formato "Cargo: Nome" é recomendado.</p>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/10">
+                    <div className="space-y-0.5">
+                      <Label>Gestão Ativa</Label>
+                      <p className="text-xs text-muted-foreground">Define se aparece por padrão no site.</p>
+                    </div>
+                    <Switch checked={startActive} onCheckedChange={setStartActive} />
+                  </div>
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button variant="ghost" onClick={closeGestaoModal}>Cancelar</Button>
+                  <Button onClick={handleSaveGestao} disabled={createGestaoMutation.isPending || updateGestaoMutation.isPending}>
+                    {editingGestaoId ? "Salvar Alterações" : "Criar Gestão"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Lista de Gestões */}
+        {isGestoesLoading ? (
+          <div className="grid gap-4">
+            <Card className="animate-pulse h-32 bg-muted/50" />
+            <Card className="animate-pulse h-32 bg-muted/50" />
+          </div>
+        ) : gestoes && (gestoes as any).length > 0 ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={(gestoes as any).map((g: any) => g.id)} strategy={verticalListSortingStrategy}>
+              <div className="grid gap-4">
+                {(gestoes as any).map((gestao: any) => (
+                  <SortableGestaoCard 
+                    key={gestao.id} 
+                    gestao={gestao as any} 
+                    onEdit={handleEditGestao as any} 
+                    onDelete={id => confirm("Tem certeza que deseja deletar toda esta gestão?") && deleteGestaoMutation.mutate({ id })} 
+                    onDeleteMember={id => confirm("Remover este membro?") && deleteMemberMutation.mutate({ id })} 
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <Card className="border-dashed border-2 py-20 flex flex-col items-center justify-center text-center">
+            <CardHeader>
+              <CardTitle className="text-muted-foreground">Histórico Vazio</CardTitle>
+              <CardDescription>Clique em "+ Nova Gestão" para começar a povoar esta timeline.</CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+}

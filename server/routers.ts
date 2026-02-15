@@ -5,11 +5,20 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
-import * as authLocal from "./auth-local";
-import { localAdmins } from "../drizzle/schema";
 import { localAuthRouter } from "./routers/localAuth";
 
-// Admin procedures are now handled by the centralized adminProcedure from trpc.ts
+const getLocalAdminId = (ctx: any) => {
+  const cookie = ctx.req.headers.cookie;
+  if (!cookie) return null;
+  try {
+    const match = cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
+    if (!match) return null;
+    const sessionData = JSON.parse(decodeURIComponent(match[1]));
+    return sessionData.isLocalAdmin ? sessionData.adminId : null;
+  } catch (e) {
+    return null;
+  }
+};
 
 export const appRouter = router({
   system: systemRouter,
@@ -18,165 +27,291 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
-  gestoes: router({
-    // Public route - get all gestoes with members for timeline display
-    list: publicProcedure.query(async () => {
-      return await db.getGestoesWithMembers();
+  timelines: router({
+    list: adminProcedure.query(async ({ ctx }) => {
+      const adminId = getLocalAdminId(ctx);
+      if (!adminId) return [];
+
+
+      // If super-admin (role 'admin' in users table, distinct from localAdmin), they might see all
+      // But based on localAdmins table, we should filter by ownerId
+      // Assuming 'ctx.user?.role' refers to the global user role. 
+      // If we want strict isolation for local admins:
+      const admin = await db.getLocalAdminById(adminId);
+      if (admin?.role === 'superadmin') {
+        return await db.getTimelinesWithAuthor();
+      }
+
+      return await db.getTimelinesByOwnerWithAuthor(adminId);
     }),
 
-    // Public route - export as JSON
-    export: publicProcedure.query(async () => {
-      const gestoes = await db.getGestoesWithMembers();
-      return {
-        gestoes: gestoes.map(g => ({
-          period: g.period,
-          members: g.members.map(m => m.name),
-          ...(g.startActive ? { startActive: true } : {}),
-        })),
-      };
-    }),
+    get: publicProcedure
+      .input(z.object({ slug: z.string() }))
+      .query(async ({ input }) => {
+        const data = await db.getTimelineWithGestoesAndMembers(input.slug);
+        if (!data) throw new TRPCError({ code: 'NOT_FOUND', message: 'Timeline not found' });
+        return data;
+      }),
 
-    // Admin routes
-    create: adminProcedure
-      .input(z.object({
-        period: z.string().min(1),
-        startActive: z.boolean().optional(),
-        displayOrder: z.number().optional(),
-        members: z.array(z.string()).optional(),
-      }))
-      .mutation(async ({ input }) => {
-        // If startActive is true, clear all other startActive flags
-        if (input.startActive) {
-          await db.clearAllStartActive();
-        }
-
-        const gestaoId = await db.createGestao({
-          period: input.period,
-          startActive: input.startActive ?? false,
-          displayOrder: input.displayOrder ?? 0,
-        });
-
-        // Add members if provided
-        if (input.members && input.members.length > 0) {
-          for (let i = 0; i < input.members.length; i++) {
-            await db.createMember({
-              gestaoId: Number(gestaoId),
-              name: input.members[i],
-              displayOrder: i,
-            });
+    export: adminProcedure
+      .input(z.object({ timelineId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        // Owner check or permission check
+        const timeline = await db.getTimelineWithGestoesAndMembers(input.timelineId.toString()); // verifying existence/ownership? 
+        // For now, relying on checkPermission for legacy or direct ownership check
+        // We should strictly check ownership if we want to enforce it.
+        // But for backward compatibility with permissions:
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.timelineId))) {
+          // Also check if owner
+          const t = (await db.getAllTimelines()).find(t => t.id === input.timelineId);
+          if (t?.ownerId !== adminId) {
+            throw new TRPCError({ code: 'FORBIDDEN' });
           }
         }
+        const gestoes = await db.getGestoesByTimelineId(input.timelineId);
+        const data = await Promise.all(gestoes.map(async g => ({
+          ...g,
+          members: await db.getMembersByGestaoId(g.id)
+        })));
+        return { gestoes: data };
+      }),
 
-        return { id: gestaoId };
+    create: adminProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        slug: z.string().min(1),
+        description: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (!adminId) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+        const id = await db.createTimeline({ ...input, ownerId: adminId });
+
+        // Grant permissions as a fallback/redundancy
+        await db.grantPermission({ adminId, timelineId: id, canEdit: true, canDelete: true });
+
+        return { id };
       }),
 
     update: adminProcedure
       .input(z.object({
         id: z.number(),
-        period: z.string().min(1).optional(),
-        startActive: z.boolean().optional(),
-        displayOrder: z.number().optional(),
+        name: z.string().optional(),
+        slug: z.string().optional(),
+        description: z.string().optional(),
       }))
-      .mutation(async ({ input }) => {
-        const { id, ...data } = input;
-
-        // If startActive is true, clear all other startActive flags
-        if (data.startActive) {
-          await db.clearAllStartActive();
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.id))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
         }
-
-        await db.updateGestao(id, data);
+        await db.updateTimeline(input.id, input);
         return { success: true };
       }),
 
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
-        await db.deleteGestao(input.id);
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.id))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.deleteTimeline(input.id);
         return { success: true };
       }),
 
-    // Bulk update for reordering gestoes
-    reorder: adminProcedure
+    import: adminProcedure
       .input(z.object({
-        updates: z.array(z.object({
-          id: z.number(),
-          displayOrder: z.number(),
-        })),
+        timelineId: z.number(),
+        data: z.object({
+          gestoes: z.array(z.object({
+            period: z.string(),
+            startActive: z.boolean().optional(),
+            displayOrder: z.number().optional(),
+            members: z.array(z.object({
+              name: z.string(),
+              displayOrder: z.number().optional(),
+              role: z.string().optional(),
+              photoUrl: z.string().optional()
+            })).optional()
+          }))
+        })
       }))
-      .mutation(async ({ input }) => {
-        for (const update of input.updates) {
-          await db.updateGestao(update.id, { displayOrder: update.displayOrder });
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.timelineId))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+
+        // We append data, not replace.
+        for (const gData of input.data.gestoes) {
+          const gestaoId = await db.createGestao({
+            timelineId: input.timelineId,
+            period: gData.period,
+            startActive: gData.startActive ?? false,
+            displayOrder: gData.displayOrder ?? 0
+          });
+
+          if (gData.members) {
+            for (let i = 0; i < gData.members.length; i++) {
+              const mData = gData.members[i];
+              await db.createMember({
+                gestaoId,
+                name: mData.name,
+                displayOrder: mData.displayOrder ?? i,
+                role: mData.role,
+                photoUrl: mData.photoUrl
+              });
+            }
+          }
         }
         return { success: true };
       }),
   }),
 
-  members: router({
-    // Get members for a specific gestao
+  gestoes: router({
     list: publicProcedure
-      .input(z.object({ gestaoId: z.number() }))
+      .input(z.object({ timelineId: z.number() }))
       .query(async ({ input }) => {
-        return await db.getMembersByGestaoId(input.gestaoId);
+        const allGestoes = await db.getGestoesByTimelineId(input.timelineId);
+        return await Promise.all(allGestoes.map(async g => ({
+          ...g,
+          members: await db.getMembersByGestaoId(g.id)
+        })));
       }),
 
-    // Admin routes
     create: adminProcedure
       .input(z.object({
-        gestaoId: z.number(),
-        name: z.string().min(1),
+        timelineId: z.number(),
+        period: z.string().min(1),
+        startActive: z.boolean().optional(),
         displayOrder: z.number().optional(),
+        members: z.array(z.string()).optional(), // Legacy simple string array
       }))
-      .mutation(async ({ input }) => {
-        const memberId = await db.createMember({
-          gestaoId: input.gestaoId,
-          name: input.name,
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.timelineId))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        if (input.startActive) await db.clearAllStartActive(input.timelineId);
+        const gestaoId = await db.createGestao({
+          timelineId: input.timelineId,
+          period: input.period,
+          startActive: input.startActive ?? false,
           displayOrder: input.displayOrder ?? 0,
         });
-        return { id: memberId };
+        if (input.members) {
+          for (let i = 0; i < input.members.length; i++) {
+            await db.createMember({ gestaoId, name: input.members[i], displayOrder: i });
+          }
+        }
+        return { id: gestaoId };
+      }),
+
+    reorder: adminProcedure
+      .input(z.object({
+        timelineId: z.number(),
+        items: z.array(z.object({ id: z.number(), displayOrder: z.number() }))
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, input.timelineId))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await Promise.all(input.items.map(item => db.updateGestao(item.id, { displayOrder: item.displayOrder })));
+        return { success: true };
       }),
 
     update: adminProcedure
       .input(z.object({
         id: z.number(),
-        name: z.string().min(1).optional(),
+        period: z.string().optional(),
+        startActive: z.boolean().optional(),
         displayOrder: z.number().optional(),
       }))
-      .mutation(async ({ input }) => {
-        const { id, ...data } = input;
-        await db.updateMember(id, data);
+      .mutation(async ({ input, ctx }) => {
+        const gestao = await db.getGestaoById(input.id);
+        if (!gestao) throw new TRPCError({ code: 'NOT_FOUND' });
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, gestao.timelineId))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        if (input.startActive) await db.clearAllStartActive(gestao.timelineId);
+        await db.updateGestao(input.id, input);
         return { success: true };
       }),
 
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const gestao = await db.getGestaoById(input.id);
+        if (!gestao) throw new TRPCError({ code: 'NOT_FOUND' });
+        const adminId = getLocalAdminId(ctx);
+        if (ctx.user?.role !== 'admin' && !(await db.checkPermission(adminId, gestao.timelineId))) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.deleteGestao(input.id);
+        return { success: true };
+      }),
+  }),
+
+  members: router({
+    create: adminProcedure
+      .input(z.object({
+        gestaoId: z.number(),
+        name: z.string().min(1),
+        displayOrder: z.number().optional(),
+        role: z.string().optional(),
+        photoUrl: z.string().optional()
+      }))
+      .mutation(async ({ input }) => {
+        const id = await db.createMember(input);
+        return { id };
+      }),
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        displayOrder: z.number().optional(),
+        role: z.string().optional(),
+        photoUrl: z.string().optional()
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateMember(input.id, input);
+        return { success: true };
+      }),
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await db.deleteMember(input.id);
         return { success: true };
       }),
+  }),
 
-    // Bulk update for reordering
-    reorder: adminProcedure
-      .input(z.object({
-        updates: z.array(z.object({
-          id: z.number(),
-          displayOrder: z.number(),
-        })),
-      }))
-      .mutation(async ({ input }) => {
-        for (const update of input.updates) {
-          await db.updateMember(update.id, { displayOrder: update.displayOrder });
-        }
+  permissions: router({
+    grant: adminProcedure
+      .input(z.object({ adminId: z.number(), timelineId: z.number(), canEdit: z.boolean().optional(), canDelete: z.boolean().optional() }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user?.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        await db.grantPermission(input);
         return { success: true };
       }),
-   }),
+    revoke: adminProcedure
+      .input(z.object({ adminId: z.number(), timelineId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user?.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        await db.revokePermission(input.adminId, input.timelineId);
+        return { success: true };
+      }),
+  }),
 
   localAuth: localAuthRouter,
 });
+
 export type AppRouter = typeof appRouter;
