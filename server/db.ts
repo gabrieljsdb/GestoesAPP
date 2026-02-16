@@ -260,6 +260,12 @@ export async function getLocalAdminById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getAllLocalAdmins() {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(localAdmins);
+}
+
 // ===== COMBINED HELPERS =====
 
 export async function getTimelineWithGestoesAndMembers(slug: string) {

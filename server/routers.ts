@@ -81,6 +81,49 @@ export const appRouter = router({
         return { gestoes: data };
       }),
 
+    // List active admins for transfer dropdown (lightweight: id + name)
+    listAdminsForTransfer: adminProcedure.query(async () => {
+      const allAdmins = await db.getAllLocalAdmins();
+      return allAdmins
+        .filter(a => a.isActive)
+        .map(a => ({ id: a.id, fullName: a.fullName, username: a.username }));
+    }),
+
+    // Transfer ownership of a timeline to another admin
+    transferOwnership: adminProcedure
+      .input(z.object({
+        timelineId: z.number(),
+        newOwnerId: z.number(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const adminId = getLocalAdminId(ctx);
+        if (!adminId) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+        // Check current ownership or superadmin
+        const allTimelines = await db.getAllTimelines();
+        const timeline = allTimelines.find(t => t.id === input.timelineId);
+        if (!timeline) throw new TRPCError({ code: 'NOT_FOUND', message: 'Timeline não encontrada' });
+
+        const callerAdmin = await db.getLocalAdminById(adminId);
+        const isSuperAdmin = callerAdmin?.role === 'superadmin';
+        const isOwner = timeline.ownerId === adminId;
+
+        if (!isOwner && !isSuperAdmin) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o dono ou superadmin pode transferir' });
+        }
+
+        // Update owner
+        await db.updateTimeline(input.timelineId, { ownerId: input.newOwnerId });
+
+        // Grant permissions to new owner
+        const hasPermission = await db.checkPermission(input.newOwnerId, input.timelineId);
+        if (!hasPermission) {
+          await db.grantPermission({ adminId: input.newOwnerId, timelineId: input.timelineId, canEdit: true, canDelete: true });
+        }
+
+        return { success: true };
+      }),
+
     create: adminProcedure
       .input(z.object({
         name: z.string().min(1),

@@ -2,23 +2,31 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, ExternalLink, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, ExternalLink, ArrowRightLeft } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
 import { BASE_PATH } from "@/const";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function TimelinesAdmin() {
+  const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newSlug, setNewSlug] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [transferTarget, setTransferTarget] = useState<{ timelineId: number; timelineName: string } | null>(null);
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
 
   const utils = trpc.useUtils();
   const { data: timelines, isLoading } = trpc.timelines.list.useQuery();
+  const { data: adminsForTransfer } = trpc.timelines.listAdminsForTransfer.useQuery(undefined, {
+    enabled: !!transferTarget,
+  });
 
   const createMutation = trpc.timelines.create.useMutation({
     onSuccess: () => {
@@ -39,9 +47,30 @@ export default function TimelinesAdmin() {
     },
   });
 
+  const transferMutation = trpc.timelines.transferOwnership.useMutation({
+    onSuccess: () => {
+      utils.timelines.list.invalidate();
+      setTransferTarget(null);
+      setSelectedOwnerId("");
+      toast.success("Timeline transferida com sucesso!");
+    },
+    onError: (error) => toast.error("Erro: " + error.message),
+  });
+
   const handleCreate = () => {
     createMutation.mutate({ name: newName, slug: newSlug, description: newDescription });
   };
+
+  const handleTransfer = () => {
+    if (!transferTarget || !selectedOwnerId) return;
+    transferMutation.mutate({
+      timelineId: transferTarget.timelineId,
+      newOwnerId: parseInt(selectedOwnerId),
+    });
+  };
+
+  // Filter out current user from transfer list
+  const transferableAdmins = adminsForTransfer?.filter(a => a.id !== user?.id) || [];
 
   return (
     <DashboardLayout>
@@ -104,6 +133,14 @@ export default function TimelinesAdmin() {
                       <Button className="flex-1" variant="ghost" onClick={() => window.open(`${BASE_PATH}/timeline/${timeline.slug}`, '_blank')}>
                         <ExternalLink className="mr-2 h-4 w-4" /> Ver Pública
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Transferir para outro admin"
+                        onClick={() => setTransferTarget({ timelineId: timeline.id, timelineName: timeline.name })}
+                      >
+                        <ArrowRightLeft className="h-4 w-4 text-blue-500" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => { if (confirm("Deletar timeline?")) deleteMutation.mutate({ id: timeline.id }) }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -115,6 +152,49 @@ export default function TimelinesAdmin() {
           </div>
         )}
       </div>
+
+      {/* Transfer Ownership Dialog */}
+      <Dialog open={!!transferTarget} onOpenChange={(open) => { if (!open) { setTransferTarget(null); setSelectedOwnerId(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transferir Timeline</DialogTitle>
+            <DialogDescription>
+              Transferir a timeline <strong>"{transferTarget?.timelineName}"</strong> para outro administrador.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Selecionar Administrador</Label>
+              <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha um administrador..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {transferableAdmins.map((admin) => (
+                    <SelectItem key={admin.id} value={admin.id.toString()}>
+                      {admin.fullName || admin.username} (@{admin.username})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {transferableAdmins.length === 0 && (
+                <p className="text-sm text-muted-foreground">Nenhum outro administrador disponível para transferência.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setTransferTarget(null); setSelectedOwnerId(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleTransfer}
+              disabled={!selectedOwnerId || transferMutation.isPending}
+            >
+              {transferMutation.isPending ? "Transferindo..." : "Transferir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
