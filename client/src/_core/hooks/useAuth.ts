@@ -66,13 +66,14 @@ export function useAuth(options?: UseAuthOptions) {
     // Combined user data: prefer OAuth user, fallback to local admin
     const oauthUser = meQuery.data;
     const localAdmin = meLocalQuery.data;
-    
+
     const combinedUser = oauthUser || (localAdmin ? {
       id: localAdmin.adminId,
       openId: `local-${localAdmin.adminId}`,
       name: localAdmin.fullName || localAdmin.username,
       username: localAdmin.username,
       email: localAdmin.email || "",
+      role: localAdmin.role || "admin",
       isLocalAdmin: true
     } : null);
 
@@ -81,12 +82,18 @@ export function useAuth(options?: UseAuthOptions) {
       JSON.stringify(combinedUser)
     );
 
+    const isSuperAdmin = Boolean(
+      (localAdmin && localAdmin.role === 'superadmin') ||
+      (oauthUser && (oauthUser as any).role === 'admin')
+    );
+
     return {
       user: combinedUser ?? null,
       loading: meQuery.isLoading || meLocalQuery.isLoading || logoutMutation.isPending || logoutLocalMutation.isPending,
       error: meQuery.error ?? meLocalQuery.error ?? logoutMutation.error ?? logoutLocalMutation.error ?? null,
       isAuthenticated: Boolean(combinedUser),
-      isLocalAdmin: Boolean(localAdmin && !oauthUser)
+      isLocalAdmin: Boolean(localAdmin && !oauthUser),
+      isSuperAdmin,
     };
   }, [
     meQuery.data,

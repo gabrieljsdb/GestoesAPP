@@ -45,6 +45,56 @@ export async function createLocalAdmin(data: {
 }
 
 /**
+ * Create a new local admin with explicit role
+ */
+export async function createLocalAdminWithRole(data: {
+  username: string;
+  email?: string;
+  password: string;
+  fullName?: string;
+  role: 'admin' | 'superadmin';
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const passwordHash = await hashPassword(data.password);
+
+  const result = await db.insert(localAdmins).values({
+    username: data.username,
+    email: data.email,
+    passwordHash,
+    fullName: data.fullName,
+    role: data.role,
+    isActive: true,
+  });
+
+  return Number(result[0].insertId);
+}
+
+/**
+ * Update admin profile (username, email, fullName, role)
+ */
+export async function updateAdminProfile(adminId: number, data: {
+  username?: string;
+  email?: string;
+  fullName?: string;
+  role?: 'admin' | 'superadmin';
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updateSet: Record<string, unknown> = {};
+  if (data.username !== undefined) updateSet.username = data.username;
+  if (data.email !== undefined) updateSet.email = data.email;
+  if (data.fullName !== undefined) updateSet.fullName = data.fullName;
+  if (data.role !== undefined) updateSet.role = data.role;
+
+  if (Object.keys(updateSet).length === 0) return;
+
+  await db.update(localAdmins).set(updateSet).where(eq(localAdmins.id, adminId));
+}
+
+/**
  * Find admin by username
  */
 export async function getAdminByUsername(username: string) {

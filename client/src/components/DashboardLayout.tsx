@@ -22,12 +22,12 @@ import {
 import { BASE_PATH, getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Users, Settings } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
-const menuItems = [
+const baseMenuItems = [
   { icon: LayoutDashboard, label: "Início", path: "/" },
   { icon: Settings, label: "Minhas Timelines", path: "/admin/timelines" },
   { icon: PanelLeft, label: "Ver Timeline", path: "/timeline" },
@@ -47,7 +47,7 @@ export default function DashboardLayout({
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
-  const { loading, user } = useAuth();
+  const { loading, user, isSuperAdmin } = useAuth();
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -119,14 +119,23 @@ function DashboardLayoutContent({
   children,
   setSidebarWidth,
 }: DashboardLayoutContentProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => location.startsWith(item.path));
   const isMobile = useIsMobile();
+
+  const menuItems = useMemo(() => {
+    const items = [...baseMenuItems];
+    if (isSuperAdmin) {
+      items.splice(2, 0, { icon: Users, label: "Gerenciar Usuários", path: "/admin/users" });
+    }
+    return items;
+  }, [isSuperAdmin]);
+
+  const activeMenuItem = menuItems.find(item => location.startsWith(item.path));
 
   useEffect(() => {
     if (isCollapsed) {

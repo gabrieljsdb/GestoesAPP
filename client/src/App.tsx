@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import TimelinesAdmin from "./pages/TimelinesAdmin";
+import UsersAdmin from "./pages/UsersAdmin";
 import Timeline from "./pages/Timeline";
 import LoginLocal from "./pages/LoginLocal";
 
@@ -18,6 +19,7 @@ function Router() {
         <Route path="/login-local" component={LoginLocal} />
         <Route path="/admin" component={TimelinesAdmin} />
         <Route path="/admin/timelines" component={TimelinesAdmin} />
+        <Route path="/admin/users" component={UsersAdmin} />
         <Route path="/admin/:timelineId" component={Admin} />
         <Route path="/timeline" component={Timeline} />
         <Route path="/timeline/:slug" component={Timeline} />
