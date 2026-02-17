@@ -37,12 +37,20 @@ export default function Home() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Link href="/timeline">
-                  <Button className="w-full" variant="outline">
-                    Ver Timeline
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
+                <div className="flex flex-col gap-2">
+                  <Link href="/timeline">
+                    <Button className="w-full" variant="outline">
+                      Ver Gestão Externa
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/comissoes">
+                    <Button className="w-full" variant="secondary">
+                      Ver Comissões
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
 

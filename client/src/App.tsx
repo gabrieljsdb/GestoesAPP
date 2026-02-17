@@ -10,6 +10,7 @@ import TimelinesAdmin from "./pages/TimelinesAdmin";
 import UsersAdmin from "./pages/UsersAdmin";
 import Timeline from "./pages/Timeline";
 import LoginLocal from "./pages/LoginLocal";
+import ComissoesList from "./pages/ComissoesList";
 
 function Router() {
   return (
@@ -23,6 +24,8 @@ function Router() {
         <Route path="/admin/:timelineId" component={Admin} />
         <Route path="/timeline" component={Timeline} />
         <Route path="/timeline/:slug" component={Timeline} />
+        <Route path="/comissoes" component={ComissoesList} />
+        <Route path="/comissoes/:slug" component={Timeline} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

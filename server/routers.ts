@@ -65,6 +65,12 @@ export const appRouter = router({
         return data;
       }),
 
+    getPublicComissoes: publicProcedure
+      .query(async () => {
+        const timelines = await db.getAllTimelines();
+        return timelines.filter(t => t.type === 'comissao');
+      }),
+
     export: adminProcedure
       .input(z.object({ timelineId: z.number() }))
       .query(async ({ input, ctx }) => {

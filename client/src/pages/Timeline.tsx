@@ -347,78 +347,124 @@ export default function Timeline() {
   return (
     <>
       <style>{timelineStyles}</style>
-      <div id="oab-timeline-wrapper">
-        <div className="ot-container">
-          <div className="ot-header">
-            <h2>{timelineData?.name || "Linha do Tempo"}</h2>
-            <p>{timelineData?.description || "Histórico das Gestões"}</p>
-          </div>
-          <div className="ot-track-wrapper">
-            <div className="ot-line-background"></div>
-            <div className="ot-track" ref={trackRef}
-              onMouseDown={(e: any) => { handleMouseDown(e); e.currentTarget.style.cursor = "grabbing"; }}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onMouseMove={handleMouseMove}
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchMove}
-            >
-              {sortedGestoes.map((item, index) => (
-                <div
-                  key={item.id}
-                  className={`ot-node ${index === activeIndex ? 'active' : ''}`}
-                  ref={el => nodeRefs.current[index] = el}
-                  onClick={() => handleNodeClick(index)}
-                >
-                  <div className="ot-dot"></div>
-                  <span className="ot-year">{item.period}</span>
-                  <div className="ot-connector"></div>
-                </div>
-              ))}
+      {timelineData.type === 'comissao' ? (
+        <div className="commission-layout min-h-screen">
+          <div className="commission-hero">
+            <div className="container mx-auto max-w-4xl px-4">
+              <h1 className="text-3xl md:text-4xl font-normal mb-4">{timelineData.name}</h1>
+              <div className="title-underline"></div>
             </div>
           </div>
-          <div className="ot-content-wrapper" ref={contentAreaRef}></div>
-          <div className="ot-controls">
-            <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.max(0, activeIndex - 1))} disabled={activeIndex === 0}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-              Anterior
-            </button>
-            <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.min(sortedGestoes.length - 1, activeIndex + 1))} disabled={activeIndex === sortedGestoes.length - 1}>
-              Próximo
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
-            </button>
-          </div>
-        </div>
 
-        {/* Member Popup Modal */}
-        {selectedMember && (
-          <div className="ot-modal-overlay" onClick={() => setSelectedMember(null)}>
-            <div className="ot-modal-content" onClick={e => e.stopPropagation()}>
-              <button className="ot-modal-close" onClick={() => setSelectedMember(null)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
+          <div className="commission-section">
+            <div className="container mx-auto max-w-4xl px-4">
+              <h2 className="text-2xl font-medium mb-2">Membros</h2>
+              <div className="section-underline"></div>
 
-              <div className="ot-modal-body">
-                <div className="ot-modal-image-container">
-                  {selectedMember.photoUrl ? (
-                    <img src={selectedMember.photoUrl} alt={selectedMember.name} className="ot-modal-image" />
-                  ) : (
-                    <div className="ot-modal-image-fallback">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                    </div>
-                  )}
-                </div>
-                <div className="ot-modal-info">
-                  <span className="ot-modal-role">{selectedMember.role?.replace(/_/g, ' ') || 'Conselheiro'}</span>
-                  <h3 className="ot-modal-name">{selectedMember.name}</h3>
-                  <div className="ot-modal-divider"></div>
-                </div>
+              <div className="overflow-x-auto">
+                <table className="commission-table w-full">
+                  <thead>
+                    <tr>
+                      <th className="pb-4">NOME</th>
+                      <th className="pb-4 text-right">CARGO</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(sortedGestoes.find(g => g.startActive) || sortedGestoes[0])?.members
+                      .sort((a: any, b: any) => {
+                        const order = ['presidente', 'vice_presidente', 'secretario', 'secretaria_adjunto', 'membro', 'membro_consultivo'];
+                        const indexA = order.indexOf(a.role);
+                        const indexB = order.indexOf(b.role);
+                        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+                      })
+                      .map((member: any) => (
+                        <tr key={member.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                          <td className="py-4 commission-name text-gray-700">{member.name}</td>
+                          <td className="py-4 commission-role text-right font-medium text-gray-500">
+                            {member.role?.replace(/_/g, ' ')}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div id="oab-timeline-wrapper">
+          <div className="ot-container">
+            <div className="ot-header">
+              <h2>{timelineData?.name || "Linha do Tempo"}</h2>
+              <p>{timelineData?.description || "Histórico das Gestões"}</p>
+            </div>
+            <div className="ot-track-wrapper">
+              <div className="ot-line-background"></div>
+              <div className="ot-track" ref={trackRef}
+                onMouseDown={(e: any) => { handleMouseDown(e); e.currentTarget.style.cursor = "grabbing"; }}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onMouseMove={handleMouseMove}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onTouchMove={handleTouchMove}
+              >
+                {sortedGestoes.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className={`ot-node ${index === activeIndex ? 'active' : ''}`}
+                    ref={el => nodeRefs.current[index] = el}
+                    onClick={() => handleNodeClick(index)}
+                  >
+                    <div className="ot-dot"></div>
+                    <span className="ot-year">{item.period}</span>
+                    <div className="ot-connector"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="ot-content-wrapper" ref={contentAreaRef}></div>
+            <div className="ot-controls">
+              <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.max(0, activeIndex - 1))} disabled={activeIndex === 0}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+                Anterior
+              </button>
+              <button className="ot-btn" onClick={() => activeIndex !== null && setActiveIndex(Math.min(sortedGestoes.length - 1, activeIndex + 1))} disabled={activeIndex === sortedGestoes.length - 1}>
+                Próximo
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Member Popup Modal */}
+          {selectedMember && (
+            <div className="ot-modal-overlay" onClick={() => setSelectedMember(null)}>
+              <div className="ot-modal-content" onClick={e => e.stopPropagation()}>
+                <button className="ot-modal-close" onClick={() => setSelectedMember(null)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+
+                <div className="ot-modal-body">
+                  <div className="ot-modal-image-container">
+                    {selectedMember.photoUrl ? (
+                      <img src={selectedMember.photoUrl} alt={selectedMember.name} className="ot-modal-image" />
+                    ) : (
+                      <div className="ot-modal-image-fallback">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="ot-modal-info">
+                    <span className="ot-modal-role">{selectedMember.role?.replace(/_/g, ' ') || 'Conselheiro'}</span>
+                    <h3 className="ot-modal-name">{selectedMember.name}</h3>
+                    <div className="ot-modal-divider"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -757,6 +803,88 @@ const timelineStyles = `
     color: var(--c-text-light);
     line-height: 1.6;
     margin: 0;
+}
+
+/* COMMISSION SPECIFIC LAYOUT (TABLE STYLE) */
+.commission-layout {
+    background: white;
+}
+
+.commission-hero {
+    background-color: #005a8d; /* Blue from image */
+    padding: 60px 40px;
+    color: white;
+    margin-bottom: 40px;
+}
+
+.commission-hero h1 {
+    font-size: 32px;
+    font-weight: 500;
+    margin-bottom: 20px;
+}
+
+.commission-hero .title-underline {
+    width: 60px;
+    height: 1px;
+    background: rgba(255,255,255,0.6);
+}
+
+.commission-section {
+    padding: 0 40px 60px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.commission-section h2 {
+    font-size: 24px;
+    color: #444;
+    font-weight: 500;
+    margin-bottom: 10px;
+}
+
+.commission-section .section-underline {
+    width: 50px;
+    height: 1px;
+    background: #ccc;
+    margin-bottom: 30px;
+}
+
+.commission-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.commission-table th {
+    text-align: left;
+    padding: 12px 10px;
+    font-size: 13px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    border-bottom: 1px solid #eee;
+}
+
+.commission-table td {
+    padding: 16px 10px;
+    font-size: 14px;
+    color: #333;
+    border-bottom: 0px; /* Matching the image's clean look */
+}
+
+.commission-table tr:hover {
+    background-color: #f9f9f9;
+}
+
+.commission-name {
+    font-weight: 500;
+    color: #555;
+    text-transform: uppercase;
+}
+
+.commission-role {
+    color: #666;
+    text-transform: uppercase;
+    font-size: 13px;
 }
 
 `;
