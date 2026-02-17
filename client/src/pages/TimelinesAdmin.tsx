@@ -19,6 +19,7 @@ export default function TimelinesAdmin() {
   const [newName, setNewName] = useState("");
   const [newSlug, setNewSlug] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newType, setNewType] = useState<"gestao" | "comissao">("gestao");
   const [transferTarget, setTransferTarget] = useState<{ timelineId: number; timelineName: string } | null>(null);
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
 
@@ -35,6 +36,7 @@ export default function TimelinesAdmin() {
       setNewName("");
       setNewSlug("");
       setNewDescription("");
+      setNewType("gestao");
       toast.success("Timeline criada com sucesso!");
     },
     onError: (error) => toast.error("Erro: " + error.message),
@@ -58,7 +60,7 @@ export default function TimelinesAdmin() {
   });
 
   const handleCreate = () => {
-    createMutation.mutate({ name: newName, slug: newSlug, description: newDescription });
+    createMutation.mutate({ name: newName, slug: newSlug, description: newDescription, type: newType });
   };
 
   const handleTransfer = () => {
@@ -102,6 +104,16 @@ export default function TimelinesAdmin() {
                   <Label htmlFor="desc">Descrição</Label>
                   <Input id="desc" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
                 </div>
+                <div className="space-y-2">
+                  <Label>Tipo de Timeline</Label>
+                  <Select value={newType} onValueChange={(v: "gestao" | "comissao") => setNewType(v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gestao">Gestão (Conselhos)</SelectItem>
+                      <SelectItem value="comissao">Comissão</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleCreate} disabled={createMutation.isPending}>Criar</Button>
@@ -119,7 +131,12 @@ export default function TimelinesAdmin() {
                 <CardHeader>
                   <CardTitle>{timeline.name}</CardTitle>
                   <CardDescription>
-                    <div>/{timeline.slug}</div>
+                    <div className="flex items-center gap-2">
+                      <span>/{timeline.slug}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(timeline as any).type === 'comissao' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {(timeline as any).type === 'comissao' ? 'Comissão' : 'Gestão'}
+                      </span>
+                    </div>
                     {/* @ts-ignore */}
                     <div className="text-xs text-muted-foreground mt-1">Criado por: {timeline.authorName || "Desconhecido"}</div>
                   </CardDescription>

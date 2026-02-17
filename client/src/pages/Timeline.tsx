@@ -70,7 +70,14 @@ export default function Timeline() {
       return data.members.filter((m: any) => m.role === role);
     };
 
-    const boardRoles = [
+    const isComissao = timelineData?.type === 'comissao';
+
+    const boardRoles = isComissao ? [
+      { role: 'presidente', label: 'Presidente' },
+      { role: 'vice_presidente', label: 'Vice-Presidente' },
+      { role: 'secretario', label: 'Secretário' },
+      { role: 'secretaria_adjunto', label: 'Secretária Adjunto' }
+    ] : [
       { role: 'presidente', label: 'Presidente' },
       { role: 'vice_presidente', label: 'Vice-Presidente' },
       { role: 'secretario_geral', label: 'Secretário Geral' },
@@ -80,7 +87,13 @@ export default function Timeline() {
 
     const councilorTitular = getMembersByRole('conselheiro_titular');
     const councilorSuplente = getMembersByRole('conselheiro_suplente');
-    const otherMembers = data.members.filter((m: any) => !m.role || !['presidente', 'vice_presidente', 'secretario_geral', 'secretario_adjunto', 'tesoureiro', 'conselheiro_titular', 'conselheiro_suplente'].includes(m.role));
+
+    // Commission roles
+    const membersCommission = getMembersByRole('membro');
+    const membersConsultivo = getMembersByRole('membro_consultivo');
+
+    const boardRoleKeys = boardRoles.map(r => r.role);
+    const otherMembers = data.members.filter((m: any) => !m.role || !([...boardRoleKeys, 'conselheiro_titular', 'conselheiro_suplente', 'membro', 'membro_consultivo'].includes(m.role)));
 
     // Helper for Pill HTML
     const createPillHTML = (member: any, label: string, showLabel: boolean = true, delay: number = 0) => `
@@ -115,7 +128,11 @@ export default function Timeline() {
         `;
     };
 
-    const councilHTML = `
+    const councilHTML = isComissao ? `
+        ${renderCouncilGroup(membersCommission, 'Membros', 0.2)}
+        ${renderCouncilGroup(membersConsultivo, 'Membros Consultivos', 0.4)}
+        ${renderCouncilGroup(otherMembers, 'Membro', 0.6)}
+    ` : `
         ${renderCouncilGroup(councilorTitular, 'Conselheiro Titular', 0.2)}
         ${renderCouncilGroup(councilorSuplente, 'Conselheiro Suplente', 0.4)}
         ${renderCouncilGroup(otherMembers, 'Membro', 0.6)}
@@ -124,14 +141,14 @@ export default function Timeline() {
     const cardHTML = `
       <div class="ot-card visible">
         <div class="ot-card-header">
-          <h3 class="ot-card-title">Gestão ${data.period}</h3>
-          <div class="ot-card-subtitle">Corpo Diretivo e Conselho Seccional</div>
+          <h3 class="ot-card-title">${isComissao ? 'Comissão' : 'Gestão'} ${data.period}</h3>
+          <div class="ot-card-subtitle">${isComissao ? 'Mesa Diretora e Membros' : 'Corpo Diretivo e Conselho Seccional'}</div>
         </div>
         
         <div class="ot-layout-container">
             <!-- Left Column: Board -->
             <div class="ot-col-left">
-                <h4 class="ot-section-title">Diretoria Executiva</h4>
+                <h4 class="ot-section-title">${isComissao ? 'Mesa Diretora' : 'Diretoria Executiva'}</h4>
                 <div class="ot-stack">
                     ${boardHTML}
                 </div>
@@ -141,7 +158,7 @@ export default function Timeline() {
 
             <!-- Right Column: Councilors -->
             <div class="ot-col-right">
-                <h4 class="ot-section-title">Conselho</h4>
+                <h4 class="ot-section-title">${isComissao ? 'Membros da Comissão' : 'Conselho Seccional'}</h4>
                 <div class="ot-stack">
                     ${councilHTML}
                 </div>

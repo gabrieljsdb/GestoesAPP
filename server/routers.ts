@@ -57,6 +57,14 @@ export const appRouter = router({
         return data;
       }),
 
+    getById: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const data = await db.getTimelineById(input.id);
+        if (!data) throw new TRPCError({ code: 'NOT_FOUND', message: 'Timeline not found' });
+        return data;
+      }),
+
     export: adminProcedure
       .input(z.object({ timelineId: z.number() }))
       .query(async ({ input, ctx }) => {
@@ -129,6 +137,7 @@ export const appRouter = router({
         name: z.string().min(1),
         slug: z.string().min(1),
         description: z.string().optional(),
+        type: z.enum(['gestao', 'comissao']).default('gestao'),
       }))
       .mutation(async ({ input, ctx }) => {
         const adminId = getLocalAdminId(ctx);

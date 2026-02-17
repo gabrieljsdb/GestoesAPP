@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Download, GripVertical, ArrowLeft, Upload } from "lucide-react";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import {
   DndContext,
@@ -88,7 +88,10 @@ export default function Admin() {
   const [newStartActive, setNewStartActive] = useState(false);
 
   const utils = trpc.useUtils();
+  const { data: timeline } = trpc.timelines.getById.useQuery({ id: timelineId! }, { enabled: !!timelineId });
   const { data: gestoes, isLoading } = trpc.gestoes.list.useQuery({ timelineId: timelineId! }, { enabled: !!timelineId });
+
+  const isComissao = (timeline as any)?.type === 'comissao';
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -145,7 +148,7 @@ export default function Admin() {
       setNewPeriod("");
       setNewMembers("");
       setNewStartActive(false);
-      toast.success("Gestão criada!");
+      toast.success(isComissao ? "Comissão criada!" : "Gestão criada!");
     },
   });
 
@@ -211,8 +214,22 @@ export default function Admin() {
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
 
   // State for adding new members with roles
-  const [role, setRole] = useState("conselheiro_titular");
+  const [role, setRole] = useState("");
   const [isAddingMember, setIsAddingMember] = useState(false);
+
+  // Set default role when timeline type is loaded
+  useState(() => {
+    if (role === "") {
+      setRole(isComissao ? "membro" : "conselheiro_titular");
+    }
+  });
+
+  // Also update role when type changes (if it was still default)
+  useEffect(() => {
+    if (timeline) {
+      setRole(isComissao ? "membro" : "conselheiro_titular");
+    }
+  }, [isComissao]);
 
   const updateGestaoMutation = trpc.gestoes.update.useMutation({
     onSuccess: () => {
@@ -274,7 +291,7 @@ export default function Admin() {
     toast.success("JSON exportado!");
   };
 
-  const ROLES = [
+  const ROLES_GESTAO = [
     { value: "presidente", label: "Presidente" },
     { value: "vice_presidente", label: "Vice-Presidente" },
     { value: "secretario_geral", label: "Secretário Geral" },
@@ -283,6 +300,17 @@ export default function Admin() {
     { value: "conselheiro_titular", label: "Conselheiro Titular" },
     { value: "conselheiro_suplente", label: "Conselheiro Suplente" },
   ];
+
+  const ROLES_COMISSAO = [
+    { value: "presidente", label: "Presidente" },
+    { value: "vice_presidente", label: "Vice-Presidente" },
+    { value: "secretario", label: "Secretário" },
+    { value: "secretaria_adjunto", label: "Secretária Adjunto" },
+    { value: "membro", label: "Membro" },
+    { value: "membro_consultivo", label: "Membro Consultivo" },
+  ];
+
+  const ROLES = isComissao ? ROLES_COMISSAO : ROLES_GESTAO;
 
   if (!timelineId) return <DashboardLayout><div className="text-center py-20"><p>Selecione uma timeline no menu.</p><Link href="/admin/timelines"><Button className="mt-4">Ir para Timelines</Button></Link></div></DashboardLayout>;
 
@@ -293,7 +321,7 @@ export default function Admin() {
           <div className="flex items-center gap-4">
             <Link href="/admin/timelines"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Gerenciar Gestões</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Gerenciar {isComissao ? 'Comissões' : 'Gestões'}</h1>
               <p className="text-muted-foreground mt-1">Configure o histórico desta linha do tempo.</p>
             </div>
           </div>
@@ -312,13 +340,13 @@ export default function Admin() {
             <Button variant="outline" onClick={handleExport}><Download className="mr-2 h-4 w-4" /> Exportar</Button>
 
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" /> Nova Gestão</Button></DialogTrigger>
+              <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" /> Nova {isComissao ? 'Comissão' : 'Gestão'}</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Criar Nova Gestão</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Criar Nova {isComissao ? 'Comissão' : 'Gestão'}</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2"><Label>Período</Label><Input value={newPeriod} onChange={e => setNewPeriod(e.target.value)} placeholder="Ex: 2024/2026" /></div>
                   <div className="space-y-2"><Label>Membros (um por linha)</Label><Textarea value={newMembers} onChange={e => setNewMembers(e.target.value)} placeholder="Presidente: Nome..." /></div>
-                  <div className="flex items-center space-x-2"><Switch checked={newStartActive} onCheckedChange={setNewStartActive} /><Label>Gestão Ativa</Label></div>
+                  <div className="flex items-center space-x-2"><Switch checked={newStartActive} onCheckedChange={setNewStartActive} /><Label>{isComissao ? 'Comissão' : 'Gestão'} Ativa</Label></div>
                 </div>
                 <DialogFooter><Button onClick={handleCreate} disabled={createMutation.isPending}>Criar</Button></DialogFooter>
               </DialogContent>
@@ -330,7 +358,7 @@ export default function Admin() {
                 <div className="space-y-6 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>Período</Label><Input value={editPeriod} onChange={e => setEditPeriod(e.target.value)} /></div>
-                    <div className="flex items-center space-x-2 pt-8"><Switch checked={editStartActive} onCheckedChange={setEditStartActive} /><Label>Gestão Ativa</Label></div>
+                    <div className="flex items-center space-x-2 pt-8"><Switch checked={editStartActive} onCheckedChange={setEditStartActive} /><Label>{isComissao ? 'Comissão' : 'Gestão'} Ativa</Label></div>
                   </div>
 
                   <div className="space-y-4 border-t pt-4">

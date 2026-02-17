@@ -116,6 +116,13 @@ export async function getTimelineBySlug(slug: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getTimelineById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(timelines).where(eq(timelines.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 export async function getTimelinesByOwner(ownerId: number) {
   const db = await getDb();
   if (!db) return [];
