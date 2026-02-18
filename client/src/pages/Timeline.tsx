@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRoute } from "wouter";
 
 export default function Timeline() {
-  const [, params] = useRoute("/timeline/:slug?");
-  const slug = params?.slug || "default";
+  const [matchTimeline, paramsTimeline] = useRoute("/timeline/:slug?");
+  const [matchComissoes, paramsComissoes] = useRoute("/comissoes/:slug?");
+
+  const slug = paramsTimeline?.slug || paramsComissoes?.slug || "default";
 
   const { data: timelineData, isLoading } = trpc.timelines.get.useQuery({ slug });
   const gestoes = timelineData?.gestoes;

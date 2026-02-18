@@ -147,7 +147,7 @@ export default function TimelinesAdmin() {
                       <Button className="w-full" variant="outline"><Pencil className="mr-2 h-4 w-4" /> Gerenciar Conteúdo</Button>
                     </Link>
                     <div className="flex gap-2">
-                      <Button className="flex-1" variant="ghost" onClick={() => window.open(`${BASE_PATH}/timeline/${timeline.slug}`, '_blank')}>
+                      <Button className="flex-1" variant="ghost" onClick={() => window.open(`${BASE_PATH}/${(timeline as any).type === 'comissao' ? 'comissoes' : 'timeline'}/${timeline.slug}`, '_blank')}>
                         <ExternalLink className="mr-2 h-4 w-4" /> Ver Pública
                       </Button>
                       <Button
